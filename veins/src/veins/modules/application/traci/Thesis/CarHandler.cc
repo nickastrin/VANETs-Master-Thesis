@@ -1,5 +1,5 @@
 #include "veins/modules/application/traci/Thesis/CarHandler.h"
-#include "veins/modules/application/traci/Thesis/CarMessage_m.h"
+#include "veins/modules/application/traci/Thesis/Message_m.h"
 
 using namespace veins;
 using namespace omnetpp;
@@ -12,7 +12,8 @@ void CarHandler::initialize(int stage)
     DemoBaseApplLayer::initialize(stage);
 
     if (stage == 0)
-    {
+    { 
+        // TODO: Check what this variable actually does
         sentMessage = false;
 
         currentSubscribedServiceId = -1;
@@ -41,139 +42,162 @@ void CarHandler::onWSA(DemoServiceAdvertisment* wsa)
 
 void CarHandler::onWSM(BaseFrame1609_4* frame)
 {
-    CarMessage* wsm = check_and_cast<CarMessage*>(frame);
+    Message* wsm = check_and_cast<Message*>(frame);
     int distance = int(traci->getDistance(curPosition, wsm->getSenderPosition(), true));
 
+    //Reject message if distance exceeds signal range
     if (distance < radioRange)
     {
-        // Reject the message if distance exceeds signal distance
-        
-        // Change color, if you received the message
+        // Change color if you accepted the message
         findHost()->getDisplayString().setTagArg("i", 1, "green");
 
-        // If it's an info request
-        if (wsm->getRequest())
+        messageType type = wsm->getType();
+
+        switch (type)
         {
-            // If you have info, send it and then continue the broadcast
-            if (!roadInfo.empty())
-            {
-                CarMessage* reply = new CarMessage();
+            // If it's a broadcast
+            case messageType::BROADCAST:
+                roadInfo = wsm->getMessageData();
 
-                populateWSM(reply);
-
-                reply->setSenderAddress(myId);
-                reply->setSenderPosition(curPosition);
-
-                const char* replyInfo = roadInfo.c_str();
-                reply->setDemoData(replyInfo);
-
-                reply->setRecipientAddress(wsm->getSenderAddress());
-
-                scheduleAt(simTime() + 1, reply->dup());
-            }
-
-            // Then forward message to reach others who might have info
-            EV << "Forwarding Message" << "\n";
-            // Resend the message after 2s + delay
-
-            wsm->setSenderPosition(curPosition);
-            scheduleAt(simTime() + 2 + uniform(0.01, 0.2), wsm->dup());
-        }
-
-        // Else, it's an info reply
-        else 
-        {
-            roadInfo = wsm->getDemoData();
-            EV << roadInfo;
-
-            // Change route if you can, to avoid the obstacle
-            /*//TODO: Remove from comment, when actual implementation time
-            if (mobility->getRoadId()[0] != ':') 
-                traciVehicle->changeRoute(roadInfo, 9999);*/
-
-            if (wsm->getRecipientAddress() != myId)
-            {
-                EV << "Forwarding Reply Message" << "\n";
-                // Resend the message after 2s + delay
-                
+                //Resend the message after 2s + delay
                 wsm->setSenderPosition(curPosition);
                 scheduleAt(simTime() + 2 + uniform(0.01, 0.2), wsm->dup());
-            }
 
-            // If the message was meant for you, accept it
-            else 
-            {
-                EV << "Message received after: " << wsm->getHopCount() << " hops.\n";
-            }
+                break;
+
+            // If it's an info request
+            case messageType::REQUEST:
+                // If you have info, send it and continue the broadcast
+                if (!roadInfo.empty())
+                {
+                    Message* reply = new Message();
+
+                    populateWSM(reply);
+
+                    reply->setSenderAddress(myId);
+                    reply->setSenderPosition(curPosition);
+                    reply->setRecipientAddress(wsm->getSenderAddress());
+
+                    reply->setType(messageType::REPLY);
+
+                    const char* replyInfo = roadInfo.c_str();
+                    reply->setMessageData(replyInfo);
+
+                    scheduleAt(simTime() + 1, reply);
+                }
+
+                // Then forward the message to reach others who might have info
+                wsm->setSenderPosition(curPosition);
+                scheduleAt(simTime() + 2 + uniform(0.01, 0.2), wsm->dup());
+
+                break;
+
+            // If it's an info reply
+            case messageType::REPLY:
+                roadInfo = wsm->getMessageData();
+
+                // TODO: Remove from commment, when it's actual implementation time
+                //Change the route if you can, to avoid the obstacle
+                /*
+                if (mobility->getRoadId()[0] != ':')
+                    traciVehicle->changeRoute(roadInfo, 9999);
+                */
+
+               // If the message was not meant for you, forward
+               if (wsm->getRecipientAddress() != myId)
+               {
+                   //Resend the message after 2s + delay
+                   wsm->setSenderPosition(curPosition);
+                   scheduleAt(simTime() + 2 + uniform(0.01, 0.2), wsm->dup());
+               }
+
+               // If the message was meant for you, accept
+               else 
+               {
+                   EV << "Message received after: " << wsm->getHopCount() + 1 << " hops.\n";
+               }
+
+               break;
+            
+            // If it's an RSU Check
+            case messageType::RSU_CHECK:
+                break;
+                
+            default:
+                break;
         }
     }
 }
 
 void CarHandler::handleSelfMsg(cMessage* msg)
 {
-    if (CarMessage* wsm = dynamic_cast<CarMessage*>(msg)) {
-        // Send this message on the service channel until the counter is 3 or higher.
-        // This code only runs when channel switching is enabled
+    // Send this message on the service channel until the counter is 3 or higher.
+    // This code only runs when channel switching is enabled
+    if (Message* wsm = dynamic_cast<Message*>(msg))
+    {
         sendDown(wsm->dup());
         wsm->setHopCount(wsm->getHopCount() + 1);
 
-        if (wsm->getHopCount() >= 3) {
+        if (wsm->getHopCount() >= 3)
+        {
             // Stop service advertisements
             stopService();
-            delete (wsm);
+            delete(wsm);
         }
-        else {
+        
+        else
             scheduleAt(simTime() + 1, wsm);
-        }
     }
-    else {
+
+    else
         DemoBaseApplLayer::handleSelfMsg(msg);
-    }
 }
 
 void CarHandler::handlePositionUpdate(cObject* obj)
 {
-    //TODO: CHECK DemoBaseApplLayer
     DemoBaseApplLayer::handlePositionUpdate(obj);
 
-    // If the car is stopped for at least 10s, it has crashed
+    // If the cas has stopped for at least 10s, it has crashed
     if (mobility->getSpeed() < 1)
     {
         if (simTime() - lastDroveAt >= 10 && sentMessage == false)
         {
-            // Change car color to red, and start broadcasting
+           // Change car color to red, and start broadcasting
             findHost()->getDisplayString().setTagArg("i", 1, "red");
             sentMessage = true;
 
             // Create new message
-            CarMessage* wsm = new CarMessage();
+            Message* wsm = new Message();
 
             populateWSM(wsm);
 
             wsm->setSenderAddress(myId);
             wsm->setSenderPosition(curPosition);
 
-            wsm->setDemoData(mobility->getRoadId().c_str());
+            wsm->setMessageData(mobility->getRoadId().c_str());
 
             // The host is standing still due to crash
-            if (dataOnSch) {
+            if (dataOnSch) 
+            {
                 startService(Channel::sch2, 42, "Traffic Information Service");
+
                 // started service and server advertising, schedule message to self to send later
                 scheduleAt(computeAsynchronousSendingTime(1, ChannelType::service), wsm);
             }
-            else {
+            else 
+            {
                 // Send right away on CCH, because channel switching is disabled
                 sendDown(wsm);
             }
         }
     }
 
-    else
+    else 
     {
         lastDroveAt = simTime();
 
         // Random chance of requesting infomation
-        int willRequest = uniform(0, 200); 
+        int willRequest = uniform(0, 400); 
 
         if (willRequest == 0)
             requestInfo();
@@ -185,17 +209,16 @@ void CarHandler::requestInfo()
 {
     // Change color of requesting car to purple
     findHost()->getDisplayString().setTagArg("i", 1, "purple");
+    sentMessage = true;
 
-    CarMessage* wsm = new CarMessage();
+    Message* wsm = new Message();
 
     populateWSM(wsm);
 
-    wsm->setRequest(true); 
+    wsm->setType(messageType::REQUEST);
 
     wsm->setSenderAddress(myId);
     wsm->setSenderPosition(curPosition);
     
-    scheduleAt(simTime() + 1, wsm->dup());
+    scheduleAt(simTime() + 1, wsm);
 }
-
-

@@ -1,7 +1,6 @@
 #pragma once
 
 #include "veins/modules/application/ieee80211p/DemoBaseApplLayer.h"
-#include <string.h>
 
 namespace veins 
 {
@@ -11,11 +10,8 @@ namespace veins
             void initialize(int stage) override;
 
         protected:
-            bool sentMessage;
-
-            int currentSubscribedServiceId;
             double radioRange;
-
+            
             std::string roadInfo;
 
         protected:
