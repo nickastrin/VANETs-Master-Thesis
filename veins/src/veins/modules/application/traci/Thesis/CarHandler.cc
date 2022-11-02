@@ -43,7 +43,7 @@ void CarHandler::onWSA(DemoServiceAdvertisment* wsa)
 void CarHandler::onWSM(BaseFrame1609_4* frame)
 {
     Message* wsm = check_and_cast<Message*>(frame);
-    int distance = int(traci->getDistance(curPosition, wsm->getSenderPosition(), true));
+    int distance = int(traci->getDistance(curPosition, wsm->getSenderPosition(), false));
 
     //Reject message if distance exceeds signal range
     if (distance < radioRange)
@@ -197,10 +197,14 @@ void CarHandler::handlePositionUpdate(cObject* obj)
         lastDroveAt = simTime();
 
         // Random chance of requesting infomation
+        /*
         int willRequest = uniform(0, 400); 
 
         if (willRequest == 0)
             requestInfo();
+            */
+        if (lastDroveAt == 85 && myId == 88)
+                requestInfo();
     }
 }
 
