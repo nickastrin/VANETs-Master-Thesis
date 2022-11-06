@@ -1,7 +1,10 @@
 #pragma once
 
 #include "veins/modules/application/ieee80211p/DemoBaseApplLayer.h"
+#include "veins/modules/application/traci/Thesis/Message_m.h"
 #include <string.h>
+#include <list>
+#include <iterator>
 
 namespace veins
 {
@@ -17,6 +20,8 @@ namespace veins
             double radioRange;
 
             std::string roadInfo;
+            std::list<Tuple> messageList;
+
             simtime_t lastDroveAt;
         
         protected:
@@ -27,5 +32,6 @@ namespace veins
             void handlePositionUpdate(cObject* obj) override;
 
             void requestInfo();
+            bool acceptMessage(Message* wsm);
     };
 }

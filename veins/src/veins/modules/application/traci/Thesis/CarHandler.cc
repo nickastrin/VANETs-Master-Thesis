@@ -1,5 +1,4 @@
 #include "veins/modules/application/traci/Thesis/CarHandler.h"
-#include "veins/modules/application/traci/Thesis/Message_m.h"
 
 using namespace veins;
 using namespace omnetpp;
@@ -48,83 +47,97 @@ void CarHandler::onWSM(BaseFrame1609_4* frame)
     //Reject message if distance exceeds signal range
     if (distance < radioRange)
     {
-        // Change color if you accepted the message
-        findHost()->getDisplayString().setTagArg("i", 1, "green");
+        bool condition = acceptMessage(wsm);
 
-        messageType type = wsm->getType();
-
-        switch (type)
+        if (condition)
         {
-            // If it's a broadcast
-            case messageType::BROADCAST:
-                roadInfo = wsm->getMessageData();
+            EV << "MESSAGE ACCEPTED BY NODE " << myId << endl;
 
-                //Resend the message after 2s + delay
-                wsm->setSenderPosition(curPosition);
-                scheduleAt(simTime() + 2 + uniform(0.01, 0.2), wsm->dup());
+            std::list<Tuple>::iterator i;
+            for (i = messageList.begin(); i != messageList.end(); i++)
+            {
+                EV << "MESSAGE ID IS " << i->id << endl;
+            }
 
-                break;
+            // Change color if you accepted the message
+            findHost()->getDisplayString().setTagArg("i", 1, "green");
 
-            // If it's an info request
-            case messageType::REQUEST:
-                // If you have info, send it and continue the broadcast
-                if (!roadInfo.empty())
-                {
-                    Message* reply = new Message();
+            messageType type = wsm->getType();
 
-                    populateWSM(reply);
+            switch (type)
+            {
+                // If it's a broadcast
+                case messageType::BROADCAST:
+                    roadInfo = wsm->getMessageData();
 
-                    reply->setSenderAddress(myId);
-                    reply->setSenderPosition(curPosition);
-                    reply->setRecipientAddress(wsm->getSenderAddress());
+                    //Resend the message after 2s + delay
+                    wsm->setSenderPosition(curPosition);
+                    scheduleAt(simTime() + 2 + uniform(0.01, 0.2), wsm->dup());
 
-                    reply->setType(messageType::REPLY);
+                    break;
 
-                    const char* replyInfo = roadInfo.c_str();
-                    reply->setMessageData(replyInfo);
+                // If it's an info request
+                //TODO: Change the way it handles data, not from
+                case messageType::REQUEST:
+                    // If you have info, send it and continue the broadcast
+                    if (!roadInfo.empty())
+                    {
+                        Message* reply = new Message();
 
-                    scheduleAt(simTime() + 1, reply);
-                }
+                        populateWSM(reply);
 
-                // Then forward the message to reach others who might have info
-                wsm->setSenderPosition(curPosition);
-                scheduleAt(simTime() + 2 + uniform(0.01, 0.2), wsm->dup());
+                        reply->setSenderAddress(myId);
+                        reply->setSenderPosition(curPosition);
+                        reply->setRecipientAddress(wsm->getSenderAddress());
 
-                break;
+                        reply->setType(messageType::REPLY);
 
-            // If it's an info reply
-            case messageType::REPLY:
-                roadInfo = wsm->getMessageData();
+                        const char* replyInfo = roadInfo.c_str();
+                        reply->setMessageData(replyInfo);
 
-                // TODO: Remove from commment, when it's actual implementation time
-                //Change the route if you can, to avoid the obstacle
-                /*
-                if (mobility->getRoadId()[0] != ':')
-                    traciVehicle->changeRoute(roadInfo, 9999);
-                */
+                        scheduleAt(simTime() + 1, reply);
+                    }
 
-               // If the message was not meant for you, forward
-               if (wsm->getRecipientAddress() != myId)
-               {
-                   //Resend the message after 2s + delay
-                   wsm->setSenderPosition(curPosition);
-                   scheduleAt(simTime() + 2 + uniform(0.01, 0.2), wsm->dup());
-               }
+                    // Then forward the message to reach others who might have info
+                    wsm->setSenderPosition(curPosition);
+                    scheduleAt(simTime() + 2 + uniform(0.01, 0.2), wsm->dup());
 
-               // If the message was meant for you, accept
-               else 
-               {
-                   EV << "Message received after: " << wsm->getHopCount() + 1 << " hops.\n";
-               }
+                    break;
 
-               break;
-            
-            // If it's an RSU Check
-            case messageType::RSU_CHECK:
-                break;
+                // If it's an info reply
+                case messageType::REPLY:
+                    roadInfo = wsm->getMessageData();
+
+                    // TODO: Remove from commment, when it's actual implementation time
+                    //Change the route if you can, to avoid the obstacle
+                    /*
+                    if (mobility->getRoadId()[0] != ':')
+                        traciVehicle->changeRoute(roadInfo, 9999);
+                    */
+
+                    // If the message was not meant for you, forward
+                    if (wsm->getRecipientAddress() != myId)
+                    {
+                        //Resend the message after 2s + delay
+                        wsm->setSenderPosition(curPosition);
+                        scheduleAt(simTime() + 2 + uniform(0.01, 0.2), wsm->dup());
+                    }
+
+                    // If the message was meant for you, accept
+                    else 
+                    {
+                        EV << "Message received after: " << wsm->getHopCount() + 1 << " hops.\n";
+                    }
+
+                    break;
                 
-            default:
-                break;
+                // If it's an RSU Check
+                case messageType::RSU_CHECK:
+                    break;
+                    
+                default:
+                    break;
+            }
         }
     }
 }
@@ -138,15 +151,12 @@ void CarHandler::handleSelfMsg(cMessage* msg)
         sendDown(wsm->dup());
         wsm->setHopCount(wsm->getHopCount() + 1);
 
-        if (wsm->getHopCount() >= 3)
+        if (wsm->getHopCount() >= 1)
         {
             // Stop service advertisements
             stopService();
             delete(wsm);
         }
-        
-        else
-            scheduleAt(simTime() + 1, wsm);
     }
 
     else
@@ -203,7 +213,7 @@ void CarHandler::handlePositionUpdate(cObject* obj)
         if (willRequest == 0)
             requestInfo();
             */
-        if (lastDroveAt == 85 && myId == 88)
+        if (lastDroveAt == 85 && myId == 58)
                 requestInfo();
     }
 }
@@ -224,5 +234,37 @@ void CarHandler::requestInfo()
     wsm->setSenderAddress(myId);
     wsm->setSenderPosition(curPosition);
     
+    messageList.insert(messageList.begin(), Tuple(wsm));
     scheduleAt(simTime() + 1, wsm);
+}
+
+bool CarHandler::acceptMessage(Message* wsm)
+{
+    if (!messageList.empty())
+    {
+        std::list<Tuple>::iterator i;
+        for (i = messageList.begin(); i != messageList.end(); i++)
+        {
+            if (i->timestamp > wsm->getCreationTime())
+                continue;
+
+            if (i->timestamp == wsm->getCreationTime())
+            {
+                if (i->id == wsm->getSenderAddress())
+                    return false;
+            }
+
+            if (i->timestamp < wsm->getCreationTime())
+            {
+                messageList.insert(i--, Tuple(wsm));
+                return true;
+            }
+        }
+    }
+
+    else 
+    {
+        messageList.insert(messageList.begin(), Tuple(wsm));
+        return true;
+    }
 }

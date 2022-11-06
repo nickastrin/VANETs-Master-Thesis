@@ -13,11 +13,13 @@ namespace veins
             double radioRange;
             
             std::string roadInfo;
+            std::list<Tuple> messageList;
 
         protected:
             void onWSM(BaseFrame1609_4* wsm) override;
             void onWSA(DemoServiceAdvertisment* wsa) override;
 
             void handleSelfMsg(cMessage* msg) override;
+            bool acceptMessage(Message* wsm);
     };
 }

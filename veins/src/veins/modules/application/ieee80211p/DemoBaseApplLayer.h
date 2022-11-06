@@ -33,6 +33,7 @@
 #include "veins/modules/mac/ieee80211p/DemoBaseApplLayerToMac1609_4Interface.h"
 #include "veins/modules/mobility/traci/TraCIMobility.h"
 #include "veins/modules/mobility/traci/TraCICommandInterface.h"
+#include "veins/modules/application/traci/Thesis/Message_m.h"
 
 namespace veins {
 
@@ -67,6 +68,24 @@ public:
     enum DemoApplMessageKinds {
         SEND_BEACON_EVT,
         SEND_WSA_EVT
+    };
+
+public:
+    // Struct for saving incoming messages
+    struct Tuple
+    {
+        LAddress::L2Type id;
+
+        simtime_t timestamp;
+        std::string data;
+
+        Tuple(Message* msg)
+        {
+            id = msg->getSenderAddress();
+                    
+            timestamp = msg->getCreationTime();
+            data = msg->getMessageData();
+        }
     };
 
 protected:
