@@ -173,6 +173,223 @@ toVoidPtr(T* t)
 
 }
 
+class SearchFrontDescriptor : public omnetpp::cClassDescriptor
+{
+  private:
+    mutable const char **propertynames;
+    enum FieldConstants {
+    };
+  public:
+    SearchFrontDescriptor();
+    virtual ~SearchFrontDescriptor();
+
+    virtual bool doesSupport(omnetpp::cObject *obj) const override;
+    virtual const char **getPropertyNames() const override;
+    virtual const char *getProperty(const char *propertyname) const override;
+    virtual int getFieldCount() const override;
+    virtual const char *getFieldName(int field) const override;
+    virtual int findField(const char *fieldName) const override;
+    virtual unsigned int getFieldTypeFlags(int field) const override;
+    virtual const char *getFieldTypeString(int field) const override;
+    virtual const char **getFieldPropertyNames(int field) const override;
+    virtual const char *getFieldProperty(int field, const char *propertyname) const override;
+    virtual int getFieldArraySize(void *object, int field) const override;
+
+    virtual const char *getFieldDynamicTypeString(void *object, int field, int i) const override;
+    virtual std::string getFieldValueAsString(void *object, int field, int i) const override;
+    virtual bool setFieldValueAsString(void *object, int field, int i, const char *value) const override;
+
+    virtual const char *getFieldStructName(int field) const override;
+    virtual void *getFieldStructValuePointer(void *object, int field, int i) const override;
+};
+
+Register_ClassDescriptor(SearchFrontDescriptor)
+
+SearchFrontDescriptor::SearchFrontDescriptor() : omnetpp::cClassDescriptor(omnetpp::opp_typename(typeid(SearchFront)), "")
+{
+    propertynames = nullptr;
+}
+
+SearchFrontDescriptor::~SearchFrontDescriptor()
+{
+    delete[] propertynames;
+}
+
+bool SearchFrontDescriptor::doesSupport(omnetpp::cObject *obj) const
+{
+    return dynamic_cast<SearchFront *>(obj)!=nullptr;
+}
+
+const char **SearchFrontDescriptor::getPropertyNames() const
+{
+    if (!propertynames) {
+        static const char *names[] = { "existingClass",  nullptr };
+        omnetpp::cClassDescriptor *basedesc = getBaseClassDescriptor();
+        const char **basenames = basedesc ? basedesc->getPropertyNames() : nullptr;
+        propertynames = mergeLists(basenames, names);
+    }
+    return propertynames;
+}
+
+const char *SearchFrontDescriptor::getProperty(const char *propertyname) const
+{
+    if (!strcmp(propertyname, "existingClass")) return "";
+    omnetpp::cClassDescriptor *basedesc = getBaseClassDescriptor();
+    return basedesc ? basedesc->getProperty(propertyname) : nullptr;
+}
+
+int SearchFrontDescriptor::getFieldCount() const
+{
+    omnetpp::cClassDescriptor *basedesc = getBaseClassDescriptor();
+    return basedesc ? 0+basedesc->getFieldCount() : 0;
+}
+
+unsigned int SearchFrontDescriptor::getFieldTypeFlags(int field) const
+{
+    omnetpp::cClassDescriptor *basedesc = getBaseClassDescriptor();
+    if (basedesc) {
+        if (field < basedesc->getFieldCount())
+            return basedesc->getFieldTypeFlags(field);
+        field -= basedesc->getFieldCount();
+    }
+    return 0;
+}
+
+const char *SearchFrontDescriptor::getFieldName(int field) const
+{
+    omnetpp::cClassDescriptor *basedesc = getBaseClassDescriptor();
+    if (basedesc) {
+        if (field < basedesc->getFieldCount())
+            return basedesc->getFieldName(field);
+        field -= basedesc->getFieldCount();
+    }
+    return nullptr;
+}
+
+int SearchFrontDescriptor::findField(const char *fieldName) const
+{
+    omnetpp::cClassDescriptor *basedesc = getBaseClassDescriptor();
+    return basedesc ? basedesc->findField(fieldName) : -1;
+}
+
+const char *SearchFrontDescriptor::getFieldTypeString(int field) const
+{
+    omnetpp::cClassDescriptor *basedesc = getBaseClassDescriptor();
+    if (basedesc) {
+        if (field < basedesc->getFieldCount())
+            return basedesc->getFieldTypeString(field);
+        field -= basedesc->getFieldCount();
+    }
+    return nullptr;
+}
+
+const char **SearchFrontDescriptor::getFieldPropertyNames(int field) const
+{
+    omnetpp::cClassDescriptor *basedesc = getBaseClassDescriptor();
+    if (basedesc) {
+        if (field < basedesc->getFieldCount())
+            return basedesc->getFieldPropertyNames(field);
+        field -= basedesc->getFieldCount();
+    }
+    switch (field) {
+        default: return nullptr;
+    }
+}
+
+const char *SearchFrontDescriptor::getFieldProperty(int field, const char *propertyname) const
+{
+    omnetpp::cClassDescriptor *basedesc = getBaseClassDescriptor();
+    if (basedesc) {
+        if (field < basedesc->getFieldCount())
+            return basedesc->getFieldProperty(field, propertyname);
+        field -= basedesc->getFieldCount();
+    }
+    switch (field) {
+        default: return nullptr;
+    }
+}
+
+int SearchFrontDescriptor::getFieldArraySize(void *object, int field) const
+{
+    omnetpp::cClassDescriptor *basedesc = getBaseClassDescriptor();
+    if (basedesc) {
+        if (field < basedesc->getFieldCount())
+            return basedesc->getFieldArraySize(object, field);
+        field -= basedesc->getFieldCount();
+    }
+    SearchFront *pp = (SearchFront *)object; (void)pp;
+    switch (field) {
+        default: return 0;
+    }
+}
+
+const char *SearchFrontDescriptor::getFieldDynamicTypeString(void *object, int field, int i) const
+{
+    omnetpp::cClassDescriptor *basedesc = getBaseClassDescriptor();
+    if (basedesc) {
+        if (field < basedesc->getFieldCount())
+            return basedesc->getFieldDynamicTypeString(object,field,i);
+        field -= basedesc->getFieldCount();
+    }
+    SearchFront *pp = (SearchFront *)object; (void)pp;
+    switch (field) {
+        default: return nullptr;
+    }
+}
+
+std::string SearchFrontDescriptor::getFieldValueAsString(void *object, int field, int i) const
+{
+    omnetpp::cClassDescriptor *basedesc = getBaseClassDescriptor();
+    if (basedesc) {
+        if (field < basedesc->getFieldCount())
+            return basedesc->getFieldValueAsString(object,field,i);
+        field -= basedesc->getFieldCount();
+    }
+    SearchFront *pp = (SearchFront *)object; (void)pp;
+    switch (field) {
+        default: return "";
+    }
+}
+
+bool SearchFrontDescriptor::setFieldValueAsString(void *object, int field, int i, const char *value) const
+{
+    omnetpp::cClassDescriptor *basedesc = getBaseClassDescriptor();
+    if (basedesc) {
+        if (field < basedesc->getFieldCount())
+            return basedesc->setFieldValueAsString(object,field,i,value);
+        field -= basedesc->getFieldCount();
+    }
+    SearchFront *pp = (SearchFront *)object; (void)pp;
+    switch (field) {
+        default: return false;
+    }
+}
+
+const char *SearchFrontDescriptor::getFieldStructName(int field) const
+{
+    omnetpp::cClassDescriptor *basedesc = getBaseClassDescriptor();
+    if (basedesc) {
+        if (field < basedesc->getFieldCount())
+            return basedesc->getFieldStructName(field);
+        field -= basedesc->getFieldCount();
+    }
+    return nullptr;
+}
+
+void *SearchFrontDescriptor::getFieldStructValuePointer(void *object, int field, int i) const
+{
+    omnetpp::cClassDescriptor *basedesc = getBaseClassDescriptor();
+    if (basedesc) {
+        if (field < basedesc->getFieldCount())
+            return basedesc->getFieldStructValuePointer(object, field, i);
+        field -= basedesc->getFieldCount();
+    }
+    SearchFront *pp = (SearchFront *)object; (void)pp;
+    switch (field) {
+        default: return nullptr;
+    }
+}
+
 namespace veins {
 
 // forward
@@ -214,6 +431,24 @@ EXECUTE_ON_STARTUP(
     e->insert(REQUEST, "REQUEST");
     e->insert(REPLY, "REPLY");
     e->insert(RSU_CHECK, "RSU_CHECK");
+    e->insert(RSU_REPLY, "RSU_REPLY");
+)
+
+EXECUTE_ON_STARTUP(
+    omnetpp::cEnum *e = omnetpp::cEnum::find("veins::centralityType");
+    if (!e) omnetpp::enums.getInstance()->add(e = new omnetpp::cEnum("veins::centralityType"));
+    e->insert(NONE, "NONE");
+    e->insert(DEGREE, "DEGREE");
+    e->insert(CLOSENESS, "CLOSENESS");
+    e->insert(BETWEENNESS, "BETWEENNESS");
+)
+
+EXECUTE_ON_STARTUP(
+    omnetpp::cEnum *e = omnetpp::cEnum::find("veins::messageStage");
+    if (!e) omnetpp::enums.getInstance()->add(e = new omnetpp::cEnum("veins::messageStage"));
+    e->insert(INITIALIZING, "INITIALIZING");
+    e->insert(SENDING, "SENDING");
+    e->insert(COLLECTING, "COLLECTING");
 )
 
 Register_Class(Message)
@@ -243,8 +478,12 @@ void Message::copy(const Message& other)
 {
     this->messageData = other.messageData;
     this->hopCount = other.hopCount;
+    this->maxHops = other.maxHops;
+    this->searchFront = other.searchFront;
     this->senderAddress = other.senderAddress;
     this->type = other.type;
+    this->centrality = other.centrality;
+    this->stage = other.stage;
     this->senderPosition = other.senderPosition;
 }
 
@@ -253,8 +492,12 @@ void Message::parsimPack(omnetpp::cCommBuffer *b) const
     ::veins::BaseFrame1609_4::parsimPack(b);
     doParsimPacking(b,this->messageData);
     doParsimPacking(b,this->hopCount);
+    doParsimPacking(b,this->maxHops);
+    doParsimPacking(b,this->searchFront);
     doParsimPacking(b,this->senderAddress);
     doParsimPacking(b,this->type);
+    doParsimPacking(b,this->centrality);
+    doParsimPacking(b,this->stage);
     doParsimPacking(b,this->senderPosition);
 }
 
@@ -263,8 +506,12 @@ void Message::parsimUnpack(omnetpp::cCommBuffer *b)
     ::veins::BaseFrame1609_4::parsimUnpack(b);
     doParsimUnpacking(b,this->messageData);
     doParsimUnpacking(b,this->hopCount);
+    doParsimUnpacking(b,this->maxHops);
+    doParsimUnpacking(b,this->searchFront);
     doParsimUnpacking(b,this->senderAddress);
     doParsimUnpacking(b,this->type);
+    doParsimUnpacking(b,this->centrality);
+    doParsimUnpacking(b,this->stage);
     doParsimUnpacking(b,this->senderPosition);
 }
 
@@ -288,6 +535,26 @@ void Message::setHopCount(int hopCount)
     this->hopCount = hopCount;
 }
 
+int Message::getMaxHops() const
+{
+    return this->maxHops;
+}
+
+void Message::setMaxHops(int maxHops)
+{
+    this->maxHops = maxHops;
+}
+
+const SearchFront& Message::getSearchFront() const
+{
+    return this->searchFront;
+}
+
+void Message::setSearchFront(const SearchFront& searchFront)
+{
+    this->searchFront = searchFront;
+}
+
 const LAddress::L2Type& Message::getSenderAddress() const
 {
     return this->senderAddress;
@@ -308,6 +575,26 @@ void Message::setType(veins::messageType type)
     this->type = type;
 }
 
+veins::centralityType Message::getCentrality() const
+{
+    return this->centrality;
+}
+
+void Message::setCentrality(veins::centralityType centrality)
+{
+    this->centrality = centrality;
+}
+
+veins::messageStage Message::getStage() const
+{
+    return this->stage;
+}
+
+void Message::setStage(veins::messageStage stage)
+{
+    this->stage = stage;
+}
+
 const Coord& Message::getSenderPosition() const
 {
     return this->senderPosition;
@@ -325,8 +612,12 @@ class MessageDescriptor : public omnetpp::cClassDescriptor
     enum FieldConstants {
         FIELD_messageData,
         FIELD_hopCount,
+        FIELD_maxHops,
+        FIELD_searchFront,
         FIELD_senderAddress,
         FIELD_type,
+        FIELD_centrality,
+        FIELD_stage,
         FIELD_senderPosition,
     };
   public:
@@ -390,7 +681,7 @@ const char *MessageDescriptor::getProperty(const char *propertyname) const
 int MessageDescriptor::getFieldCount() const
 {
     omnetpp::cClassDescriptor *basedesc = getBaseClassDescriptor();
-    return basedesc ? 5+basedesc->getFieldCount() : 5;
+    return basedesc ? 9+basedesc->getFieldCount() : 9;
 }
 
 unsigned int MessageDescriptor::getFieldTypeFlags(int field) const
@@ -404,11 +695,15 @@ unsigned int MessageDescriptor::getFieldTypeFlags(int field) const
     static unsigned int fieldTypeFlags[] = {
         FD_ISEDITABLE,    // FIELD_messageData
         FD_ISEDITABLE,    // FIELD_hopCount
+        FD_ISEDITABLE,    // FIELD_maxHops
+        FD_ISCOMPOUND,    // FIELD_searchFront
         0,    // FIELD_senderAddress
         FD_ISEDITABLE,    // FIELD_type
+        FD_ISEDITABLE,    // FIELD_centrality
+        FD_ISEDITABLE,    // FIELD_stage
         0,    // FIELD_senderPosition
     };
-    return (field >= 0 && field < 5) ? fieldTypeFlags[field] : 0;
+    return (field >= 0 && field < 9) ? fieldTypeFlags[field] : 0;
 }
 
 const char *MessageDescriptor::getFieldName(int field) const
@@ -422,11 +717,15 @@ const char *MessageDescriptor::getFieldName(int field) const
     static const char *fieldNames[] = {
         "messageData",
         "hopCount",
+        "maxHops",
+        "searchFront",
         "senderAddress",
         "type",
+        "centrality",
+        "stage",
         "senderPosition",
     };
-    return (field >= 0 && field < 5) ? fieldNames[field] : nullptr;
+    return (field >= 0 && field < 9) ? fieldNames[field] : nullptr;
 }
 
 int MessageDescriptor::findField(const char *fieldName) const
@@ -435,9 +734,13 @@ int MessageDescriptor::findField(const char *fieldName) const
     int base = basedesc ? basedesc->getFieldCount() : 0;
     if (fieldName[0] == 'm' && strcmp(fieldName, "messageData") == 0) return base+0;
     if (fieldName[0] == 'h' && strcmp(fieldName, "hopCount") == 0) return base+1;
-    if (fieldName[0] == 's' && strcmp(fieldName, "senderAddress") == 0) return base+2;
-    if (fieldName[0] == 't' && strcmp(fieldName, "type") == 0) return base+3;
-    if (fieldName[0] == 's' && strcmp(fieldName, "senderPosition") == 0) return base+4;
+    if (fieldName[0] == 'm' && strcmp(fieldName, "maxHops") == 0) return base+2;
+    if (fieldName[0] == 's' && strcmp(fieldName, "searchFront") == 0) return base+3;
+    if (fieldName[0] == 's' && strcmp(fieldName, "senderAddress") == 0) return base+4;
+    if (fieldName[0] == 't' && strcmp(fieldName, "type") == 0) return base+5;
+    if (fieldName[0] == 'c' && strcmp(fieldName, "centrality") == 0) return base+6;
+    if (fieldName[0] == 's' && strcmp(fieldName, "stage") == 0) return base+7;
+    if (fieldName[0] == 's' && strcmp(fieldName, "senderPosition") == 0) return base+8;
     return basedesc ? basedesc->findField(fieldName) : -1;
 }
 
@@ -452,11 +755,15 @@ const char *MessageDescriptor::getFieldTypeString(int field) const
     static const char *fieldTypeStrings[] = {
         "string",    // FIELD_messageData
         "int",    // FIELD_hopCount
+        "int",    // FIELD_maxHops
+        "SearchFront",    // FIELD_searchFront
         "veins::LAddress::L2Type",    // FIELD_senderAddress
         "veins::messageType",    // FIELD_type
+        "veins::centralityType",    // FIELD_centrality
+        "veins::messageStage",    // FIELD_stage
         "veins::Coord",    // FIELD_senderPosition
     };
-    return (field >= 0 && field < 5) ? fieldTypeStrings[field] : nullptr;
+    return (field >= 0 && field < 9) ? fieldTypeStrings[field] : nullptr;
 }
 
 const char **MessageDescriptor::getFieldPropertyNames(int field) const
@@ -469,6 +776,14 @@ const char **MessageDescriptor::getFieldPropertyNames(int field) const
     }
     switch (field) {
         case FIELD_type: {
+            static const char *names[] = { "enum",  nullptr };
+            return names;
+        }
+        case FIELD_centrality: {
+            static const char *names[] = { "enum",  nullptr };
+            return names;
+        }
+        case FIELD_stage: {
             static const char *names[] = { "enum",  nullptr };
             return names;
         }
@@ -487,6 +802,12 @@ const char *MessageDescriptor::getFieldProperty(int field, const char *propertyn
     switch (field) {
         case FIELD_type:
             if (!strcmp(propertyname, "enum")) return "veins::messageType";
+            return nullptr;
+        case FIELD_centrality:
+            if (!strcmp(propertyname, "enum")) return "veins::centralityType";
+            return nullptr;
+        case FIELD_stage:
+            if (!strcmp(propertyname, "enum")) return "veins::messageStage";
             return nullptr;
         default: return nullptr;
     }
@@ -532,8 +853,12 @@ std::string MessageDescriptor::getFieldValueAsString(void *object, int field, in
     switch (field) {
         case FIELD_messageData: return oppstring2string(pp->getMessageData());
         case FIELD_hopCount: return long2string(pp->getHopCount());
+        case FIELD_maxHops: return long2string(pp->getMaxHops());
+        case FIELD_searchFront: {std::stringstream out; out << pp->getSearchFront(); return out.str();}
         case FIELD_senderAddress: {std::stringstream out; out << pp->getSenderAddress(); return out.str();}
         case FIELD_type: return enum2string(pp->getType(), "veins::messageType");
+        case FIELD_centrality: return enum2string(pp->getCentrality(), "veins::centralityType");
+        case FIELD_stage: return enum2string(pp->getStage(), "veins::messageStage");
         case FIELD_senderPosition: {std::stringstream out; out << pp->getSenderPosition(); return out.str();}
         default: return "";
     }
@@ -551,7 +876,10 @@ bool MessageDescriptor::setFieldValueAsString(void *object, int field, int i, co
     switch (field) {
         case FIELD_messageData: pp->setMessageData((value)); return true;
         case FIELD_hopCount: pp->setHopCount(string2long(value)); return true;
+        case FIELD_maxHops: pp->setMaxHops(string2long(value)); return true;
         case FIELD_type: pp->setType((veins::messageType)string2enum(value, "veins::messageType")); return true;
+        case FIELD_centrality: pp->setCentrality((veins::centralityType)string2enum(value, "veins::centralityType")); return true;
+        case FIELD_stage: pp->setStage((veins::messageStage)string2enum(value, "veins::messageStage")); return true;
         default: return false;
     }
 }
@@ -565,6 +893,7 @@ const char *MessageDescriptor::getFieldStructName(int field) const
         field -= basedesc->getFieldCount();
     }
     switch (field) {
+        case FIELD_searchFront: return omnetpp::opp_typename(typeid(SearchFront));
         default: return nullptr;
     };
 }
@@ -579,6 +908,7 @@ void *MessageDescriptor::getFieldStructValuePointer(void *object, int field, int
     }
     Message *pp = (Message *)object; (void)pp;
     switch (field) {
+        case FIELD_searchFront: return toVoidPtr(&pp->getSearchFront()); break;
         case FIELD_senderAddress: return toVoidPtr(&pp->getSenderAddress()); break;
         case FIELD_senderPosition: return toVoidPtr(&pp->getSenderPosition()); break;
         default: return nullptr;

@@ -31,7 +31,24 @@ namespace veins
             void handleSelfMsg(cMessage* msg) override;
             void handlePositionUpdate(cObject* obj) override;
 
+            // Message Handlers
+            void handleBroadcast(Message* wsm);
+            void handleRequest(Message* wsm);
+            void handleReply(Message* wsm);
+            void handleRsuCheck(Message* wsm);
+            void handleRsuReply(Message* wsm);
+
+            // Centrality Calculators
+            void degreeCentrality(Message* wsm);
+            void closenessCentrality(Message* wsm);
+            void betweennessCentrality(Message* wsm);
+
+            // Rsu Reply Handlers
+            void handleCloseness(Message* wsm);
+            void handleBetweenness(Message* wsm);
+
             void requestInfo();
             bool acceptMessage(Message* wsm);
+            bool isDuplicate(Message* wsm);
     };
 }

@@ -1,6 +1,10 @@
 #pragma once
 
 #include "veins/modules/application/ieee80211p/DemoBaseApplLayer.h"
+#include "veins/modules/application/traci/Thesis/Message_m.h"
+#include <string.h>
+#include <list>
+#include <iterator>
 
 namespace veins 
 {
@@ -20,6 +24,26 @@ namespace veins
             void onWSA(DemoServiceAdvertisment* wsa) override;
 
             void handleSelfMsg(cMessage* msg) override;
+
+            // Message Handlers
+            void handleBroadcast(Message* wsm);
+            void handleRequest(Message* wsm);
+            void handleReply(Message* wsm);
+            void handleRsuCheck(Message* wsm);
+            void handleRsuReply(Message* wsm);
+
+            // Centrality Calculators
+            void degreeCentrality(Message* wsm);
+            void closenessCentrality(Message* wsm);
+            void betweennessCentrality(Message* wsm);
+
+            // Rsu Reply Handlers
+            void handleDegree(Message* wsm);
+            void handleCloseness(Message* wsm);
+            void handleBetweenness(Message* wsm);
+
             bool acceptMessage(Message* wsm);
+            bool isDuplicate(Message* wsm);
+            void requestCentrality(centralityType centrality);
     };
 }

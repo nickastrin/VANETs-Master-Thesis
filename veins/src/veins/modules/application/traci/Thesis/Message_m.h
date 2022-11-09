@@ -39,11 +39,17 @@ class Message;
 
 #include "veins/base/utils/SimpleAddress_m.h" // import veins.base.utils.SimpleAddress
 
+// cplusplus {{
+    #include <list>
+
+    typedef std::list<long> SearchFront;
+// }}
+
 
 namespace veins {
 
 /**
- * Enum generated from <tt>veins/modules/application/traci/Thesis/Message.msg:8</tt> by nedtool.
+ * Enum generated from <tt>veins/modules/application/traci/Thesis/Message.msg:17</tt> by nedtool.
  * <pre>
  * enum messageType
  * {
@@ -51,6 +57,7 @@ namespace veins {
  *     REQUEST = 1;
  *     REPLY = 2;
  *     RSU_CHECK = 3;
+ *     RSU_REPLY = 4;
  * }
  * </pre>
  */
@@ -58,24 +65,69 @@ enum messageType {
     BROADCAST = 0,
     REQUEST = 1,
     REPLY = 2,
-    RSU_CHECK = 3
+    RSU_CHECK = 3,
+    RSU_REPLY = 4
 };
 
 /**
- * Class generated from <tt>veins/modules/application/traci/Thesis/Message.msg:16</tt> by nedtool.
+ * Enum generated from <tt>veins/modules/application/traci/Thesis/Message.msg:26</tt> by nedtool.
  * <pre>
- * message Message extends BaseFrame1609_4
+ * enum centralityType
+ * {
+ *     NONE = 0;
+ *     DEGREE = 1;
+ *     CLOSENESS = 2;
+ *     BETWEENNESS = 3;
+ * }
+ * </pre>
+ */
+enum centralityType {
+    NONE = 0,
+    DEGREE = 1,
+    CLOSENESS = 2,
+    BETWEENNESS = 3
+};
+
+/**
+ * Enum generated from <tt>veins/modules/application/traci/Thesis/Message.msg:34</tt> by nedtool.
+ * <pre>
+ * enum messageStage
+ * {
+ *     INITIALIZING = 0;
+ *     SENDING = 1;
+ *     COLLECTING = 2;
+ * }
+ * </pre>
+ */
+enum messageStage {
+    INITIALIZING = 0,
+    SENDING = 1,
+    COLLECTING = 2
+};
+
+/**
+ * Class generated from <tt>veins/modules/application/traci/Thesis/Message.msg:41</tt> by nedtool.
+ * <pre>
+ * packet Message extends BaseFrame1609_4
  * {
  *     // Message data
- *     string messageData;
+ *     string messageData = "";
  * 
  *     // Message TTL
  *     int hopCount = 0;
+ *     int maxHops = 2;
+ * 
+ *     SearchFront searchFront;
  * 
  *     // Address of sender. Default is broadcast
  *     LAddress::L2Type senderAddress = -1;
+ * 
  *     // Define message type. Default is broadcast
  *     messageType type = messageType::BROADCAST;
+ *     // Define centrality type for centrality calculations. Default is none
+ *     centralityType centrality = centralityType::NONE;
+ *     // Define message stage. Used for collecting and initializing during selfMessage
+ *     messageStage stage = messageStage::SENDING;
  * 
  *     // Coordinates of the sender
  *     Coord senderPosition;
@@ -85,10 +137,14 @@ enum messageType {
 class VEINS_API Message : public ::veins::BaseFrame1609_4
 {
   protected:
-    omnetpp::opp_string messageData;
+    omnetpp::opp_string messageData = "";
     int hopCount = 0;
+    int maxHops = 2;
+    SearchFront searchFront;
     LAddress::L2Type senderAddress = -1;
     veins::messageType type = messageType::BROADCAST;
+    veins::centralityType centrality = centralityType::NONE;
+    veins::messageStage stage = messageStage::SENDING;
     Coord senderPosition;
 
   private:
@@ -112,11 +168,20 @@ class VEINS_API Message : public ::veins::BaseFrame1609_4
     virtual void setMessageData(const char * messageData);
     virtual int getHopCount() const;
     virtual void setHopCount(int hopCount);
+    virtual int getMaxHops() const;
+    virtual void setMaxHops(int maxHops);
+    virtual const SearchFront& getSearchFront() const;
+    virtual SearchFront& getSearchFrontForUpdate() { return const_cast<SearchFront&>(const_cast<Message*>(this)->getSearchFront());}
+    virtual void setSearchFront(const SearchFront& searchFront);
     virtual const LAddress::L2Type& getSenderAddress() const;
     virtual LAddress::L2Type& getSenderAddressForUpdate() { return const_cast<LAddress::L2Type&>(const_cast<Message*>(this)->getSenderAddress());}
     virtual void setSenderAddress(const LAddress::L2Type& senderAddress);
     virtual veins::messageType getType() const;
     virtual void setType(veins::messageType type);
+    virtual veins::centralityType getCentrality() const;
+    virtual void setCentrality(veins::centralityType centrality);
+    virtual veins::messageStage getStage() const;
+    virtual void setStage(veins::messageStage stage);
     virtual const Coord& getSenderPosition() const;
     virtual Coord& getSenderPositionForUpdate() { return const_cast<Coord&>(const_cast<Message*>(this)->getSenderPosition());}
     virtual void setSenderPosition(const Coord& senderPosition);
