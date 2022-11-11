@@ -17,7 +17,8 @@ namespace veins
             double radioRange;
             
             std::string roadInfo;
-            std::list<Tuple> messageList;
+            std::list<Tuple> messageList;               // List used for cached message storage
+            std::list<Tuple> collectionList;            // List for the centrality calculation
 
         protected:
             void onWSM(BaseFrame1609_4* wsm) override;
@@ -45,5 +46,8 @@ namespace veins
             bool acceptMessage(Message* wsm);
             bool isDuplicate(Message* wsm);
             void requestCentrality(centralityType centrality);
+
+            void collectMessages(int &counter);
+            double calculateCloseness(int counter);
     };
 }

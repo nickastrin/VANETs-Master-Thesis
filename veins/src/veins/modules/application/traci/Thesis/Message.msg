@@ -30,34 +30,30 @@ enum centralityType
     BETWEENNESS = 3;
 };
 
-enum messageStage
+enum procedureState
 {
     INITIALIZING = 0;
     SENDING = 1;
     COLLECTING = 2;
 }
 
-packet Message extends BaseFrame1609_4 
+packet Message extends BaseFrame1609_4
 {
-    // Message data
-    string messageData = "";
+    LAddress::L2Type senderAddress = -1;
+    LAddress::L2Type target;
 
-    // Message TTL
+    // Message properties
+    int maxHops = 1;
     int hopCount = 0;
-    int maxHops = 2;
 
-    SearchFront searchFront;
-
-    // Address of sender. Default is broadcast
-    LAddress::L2Type senderAddress = -1;    
-
-    // Define message type. Default is broadcast
+    // Message specifications
     messageType type = messageType::BROADCAST;
-    // Define centrality type for centrality calculations. Default is none
     centralityType centrality = centralityType::NONE;
-    // Define message stage. Used for collecting and initializing during selfMessage
-    messageStage stage = messageStage::SENDING;
+    procedureState state = procedureState::SENDING;         // It might be pointless, but we'll see
 
-    // Coordinates of the sender
-    Coord senderPosition;
+    // Message data
+    string messageData = "";                                // Might be pointless as well
+    bool passedRsu = false;                                 // Variable to determine if message has passed from an RSU, might be pointless
+    SearchFront searchFront;                                // List used for centrality calculations
+    Coord senderPosition;                                   // Variable used for distance calculations
 }

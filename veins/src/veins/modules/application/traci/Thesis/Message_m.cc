@@ -444,8 +444,8 @@ EXECUTE_ON_STARTUP(
 )
 
 EXECUTE_ON_STARTUP(
-    omnetpp::cEnum *e = omnetpp::cEnum::find("veins::messageStage");
-    if (!e) omnetpp::enums.getInstance()->add(e = new omnetpp::cEnum("veins::messageStage"));
+    omnetpp::cEnum *e = omnetpp::cEnum::find("veins::procedureState");
+    if (!e) omnetpp::enums.getInstance()->add(e = new omnetpp::cEnum("veins::procedureState"));
     e->insert(INITIALIZING, "INITIALIZING");
     e->insert(SENDING, "SENDING");
     e->insert(COLLECTING, "COLLECTING");
@@ -476,63 +476,69 @@ Message& Message::operator=(const Message& other)
 
 void Message::copy(const Message& other)
 {
-    this->messageData = other.messageData;
-    this->hopCount = other.hopCount;
-    this->maxHops = other.maxHops;
-    this->searchFront = other.searchFront;
     this->senderAddress = other.senderAddress;
+    this->target = other.target;
+    this->maxHops = other.maxHops;
+    this->hopCount = other.hopCount;
     this->type = other.type;
     this->centrality = other.centrality;
-    this->stage = other.stage;
+    this->state = other.state;
+    this->messageData = other.messageData;
+    this->passedRsu = other.passedRsu;
+    this->searchFront = other.searchFront;
     this->senderPosition = other.senderPosition;
 }
 
 void Message::parsimPack(omnetpp::cCommBuffer *b) const
 {
     ::veins::BaseFrame1609_4::parsimPack(b);
-    doParsimPacking(b,this->messageData);
-    doParsimPacking(b,this->hopCount);
-    doParsimPacking(b,this->maxHops);
-    doParsimPacking(b,this->searchFront);
     doParsimPacking(b,this->senderAddress);
+    doParsimPacking(b,this->target);
+    doParsimPacking(b,this->maxHops);
+    doParsimPacking(b,this->hopCount);
     doParsimPacking(b,this->type);
     doParsimPacking(b,this->centrality);
-    doParsimPacking(b,this->stage);
+    doParsimPacking(b,this->state);
+    doParsimPacking(b,this->messageData);
+    doParsimPacking(b,this->passedRsu);
+    doParsimPacking(b,this->searchFront);
     doParsimPacking(b,this->senderPosition);
 }
 
 void Message::parsimUnpack(omnetpp::cCommBuffer *b)
 {
     ::veins::BaseFrame1609_4::parsimUnpack(b);
-    doParsimUnpacking(b,this->messageData);
-    doParsimUnpacking(b,this->hopCount);
-    doParsimUnpacking(b,this->maxHops);
-    doParsimUnpacking(b,this->searchFront);
     doParsimUnpacking(b,this->senderAddress);
+    doParsimUnpacking(b,this->target);
+    doParsimUnpacking(b,this->maxHops);
+    doParsimUnpacking(b,this->hopCount);
     doParsimUnpacking(b,this->type);
     doParsimUnpacking(b,this->centrality);
-    doParsimUnpacking(b,this->stage);
+    doParsimUnpacking(b,this->state);
+    doParsimUnpacking(b,this->messageData);
+    doParsimUnpacking(b,this->passedRsu);
+    doParsimUnpacking(b,this->searchFront);
     doParsimUnpacking(b,this->senderPosition);
 }
 
-const char * Message::getMessageData() const
+const LAddress::L2Type& Message::getSenderAddress() const
 {
-    return this->messageData.c_str();
+    return this->senderAddress;
 }
 
-void Message::setMessageData(const char * messageData)
+void Message::setSenderAddress(const LAddress::L2Type& senderAddress)
 {
-    this->messageData = messageData;
+    this->senderAddress = senderAddress;
 }
 
-int Message::getHopCount() const
+const LAddress::L2Type& Message::getTarget() const
 {
-    return this->hopCount;
+    return this->target;
 }
 
-void Message::setHopCount(int hopCount)
+void Message::setTarget(const LAddress::L2Type& target)
 {
-    this->hopCount = hopCount;
+    this->target = target;
 }
 
 int Message::getMaxHops() const
@@ -545,24 +551,14 @@ void Message::setMaxHops(int maxHops)
     this->maxHops = maxHops;
 }
 
-const SearchFront& Message::getSearchFront() const
+int Message::getHopCount() const
 {
-    return this->searchFront;
+    return this->hopCount;
 }
 
-void Message::setSearchFront(const SearchFront& searchFront)
+void Message::setHopCount(int hopCount)
 {
-    this->searchFront = searchFront;
-}
-
-const LAddress::L2Type& Message::getSenderAddress() const
-{
-    return this->senderAddress;
-}
-
-void Message::setSenderAddress(const LAddress::L2Type& senderAddress)
-{
-    this->senderAddress = senderAddress;
+    this->hopCount = hopCount;
 }
 
 veins::messageType Message::getType() const
@@ -585,14 +581,44 @@ void Message::setCentrality(veins::centralityType centrality)
     this->centrality = centrality;
 }
 
-veins::messageStage Message::getStage() const
+veins::procedureState Message::getState() const
 {
-    return this->stage;
+    return this->state;
 }
 
-void Message::setStage(veins::messageStage stage)
+void Message::setState(veins::procedureState state)
 {
-    this->stage = stage;
+    this->state = state;
+}
+
+const char * Message::getMessageData() const
+{
+    return this->messageData.c_str();
+}
+
+void Message::setMessageData(const char * messageData)
+{
+    this->messageData = messageData;
+}
+
+bool Message::getPassedRsu() const
+{
+    return this->passedRsu;
+}
+
+void Message::setPassedRsu(bool passedRsu)
+{
+    this->passedRsu = passedRsu;
+}
+
+const SearchFront& Message::getSearchFront() const
+{
+    return this->searchFront;
+}
+
+void Message::setSearchFront(const SearchFront& searchFront)
+{
+    this->searchFront = searchFront;
 }
 
 const Coord& Message::getSenderPosition() const
@@ -610,14 +636,16 @@ class MessageDescriptor : public omnetpp::cClassDescriptor
   private:
     mutable const char **propertynames;
     enum FieldConstants {
-        FIELD_messageData,
-        FIELD_hopCount,
-        FIELD_maxHops,
-        FIELD_searchFront,
         FIELD_senderAddress,
+        FIELD_target,
+        FIELD_maxHops,
+        FIELD_hopCount,
         FIELD_type,
         FIELD_centrality,
-        FIELD_stage,
+        FIELD_state,
+        FIELD_messageData,
+        FIELD_passedRsu,
+        FIELD_searchFront,
         FIELD_senderPosition,
     };
   public:
@@ -681,7 +709,7 @@ const char *MessageDescriptor::getProperty(const char *propertyname) const
 int MessageDescriptor::getFieldCount() const
 {
     omnetpp::cClassDescriptor *basedesc = getBaseClassDescriptor();
-    return basedesc ? 9+basedesc->getFieldCount() : 9;
+    return basedesc ? 11+basedesc->getFieldCount() : 11;
 }
 
 unsigned int MessageDescriptor::getFieldTypeFlags(int field) const
@@ -693,17 +721,19 @@ unsigned int MessageDescriptor::getFieldTypeFlags(int field) const
         field -= basedesc->getFieldCount();
     }
     static unsigned int fieldTypeFlags[] = {
-        FD_ISEDITABLE,    // FIELD_messageData
-        FD_ISEDITABLE,    // FIELD_hopCount
-        FD_ISEDITABLE,    // FIELD_maxHops
-        FD_ISCOMPOUND,    // FIELD_searchFront
         0,    // FIELD_senderAddress
+        0,    // FIELD_target
+        FD_ISEDITABLE,    // FIELD_maxHops
+        FD_ISEDITABLE,    // FIELD_hopCount
         FD_ISEDITABLE,    // FIELD_type
         FD_ISEDITABLE,    // FIELD_centrality
-        FD_ISEDITABLE,    // FIELD_stage
+        FD_ISEDITABLE,    // FIELD_state
+        FD_ISEDITABLE,    // FIELD_messageData
+        FD_ISEDITABLE,    // FIELD_passedRsu
+        FD_ISCOMPOUND,    // FIELD_searchFront
         0,    // FIELD_senderPosition
     };
-    return (field >= 0 && field < 9) ? fieldTypeFlags[field] : 0;
+    return (field >= 0 && field < 11) ? fieldTypeFlags[field] : 0;
 }
 
 const char *MessageDescriptor::getFieldName(int field) const
@@ -715,32 +745,36 @@ const char *MessageDescriptor::getFieldName(int field) const
         field -= basedesc->getFieldCount();
     }
     static const char *fieldNames[] = {
-        "messageData",
-        "hopCount",
-        "maxHops",
-        "searchFront",
         "senderAddress",
+        "target",
+        "maxHops",
+        "hopCount",
         "type",
         "centrality",
-        "stage",
+        "state",
+        "messageData",
+        "passedRsu",
+        "searchFront",
         "senderPosition",
     };
-    return (field >= 0 && field < 9) ? fieldNames[field] : nullptr;
+    return (field >= 0 && field < 11) ? fieldNames[field] : nullptr;
 }
 
 int MessageDescriptor::findField(const char *fieldName) const
 {
     omnetpp::cClassDescriptor *basedesc = getBaseClassDescriptor();
     int base = basedesc ? basedesc->getFieldCount() : 0;
-    if (fieldName[0] == 'm' && strcmp(fieldName, "messageData") == 0) return base+0;
-    if (fieldName[0] == 'h' && strcmp(fieldName, "hopCount") == 0) return base+1;
+    if (fieldName[0] == 's' && strcmp(fieldName, "senderAddress") == 0) return base+0;
+    if (fieldName[0] == 't' && strcmp(fieldName, "target") == 0) return base+1;
     if (fieldName[0] == 'm' && strcmp(fieldName, "maxHops") == 0) return base+2;
-    if (fieldName[0] == 's' && strcmp(fieldName, "searchFront") == 0) return base+3;
-    if (fieldName[0] == 's' && strcmp(fieldName, "senderAddress") == 0) return base+4;
-    if (fieldName[0] == 't' && strcmp(fieldName, "type") == 0) return base+5;
-    if (fieldName[0] == 'c' && strcmp(fieldName, "centrality") == 0) return base+6;
-    if (fieldName[0] == 's' && strcmp(fieldName, "stage") == 0) return base+7;
-    if (fieldName[0] == 's' && strcmp(fieldName, "senderPosition") == 0) return base+8;
+    if (fieldName[0] == 'h' && strcmp(fieldName, "hopCount") == 0) return base+3;
+    if (fieldName[0] == 't' && strcmp(fieldName, "type") == 0) return base+4;
+    if (fieldName[0] == 'c' && strcmp(fieldName, "centrality") == 0) return base+5;
+    if (fieldName[0] == 's' && strcmp(fieldName, "state") == 0) return base+6;
+    if (fieldName[0] == 'm' && strcmp(fieldName, "messageData") == 0) return base+7;
+    if (fieldName[0] == 'p' && strcmp(fieldName, "passedRsu") == 0) return base+8;
+    if (fieldName[0] == 's' && strcmp(fieldName, "searchFront") == 0) return base+9;
+    if (fieldName[0] == 's' && strcmp(fieldName, "senderPosition") == 0) return base+10;
     return basedesc ? basedesc->findField(fieldName) : -1;
 }
 
@@ -753,17 +787,19 @@ const char *MessageDescriptor::getFieldTypeString(int field) const
         field -= basedesc->getFieldCount();
     }
     static const char *fieldTypeStrings[] = {
-        "string",    // FIELD_messageData
-        "int",    // FIELD_hopCount
-        "int",    // FIELD_maxHops
-        "SearchFront",    // FIELD_searchFront
         "veins::LAddress::L2Type",    // FIELD_senderAddress
+        "veins::LAddress::L2Type",    // FIELD_target
+        "int",    // FIELD_maxHops
+        "int",    // FIELD_hopCount
         "veins::messageType",    // FIELD_type
         "veins::centralityType",    // FIELD_centrality
-        "veins::messageStage",    // FIELD_stage
+        "veins::procedureState",    // FIELD_state
+        "string",    // FIELD_messageData
+        "bool",    // FIELD_passedRsu
+        "SearchFront",    // FIELD_searchFront
         "veins::Coord",    // FIELD_senderPosition
     };
-    return (field >= 0 && field < 9) ? fieldTypeStrings[field] : nullptr;
+    return (field >= 0 && field < 11) ? fieldTypeStrings[field] : nullptr;
 }
 
 const char **MessageDescriptor::getFieldPropertyNames(int field) const
@@ -783,7 +819,7 @@ const char **MessageDescriptor::getFieldPropertyNames(int field) const
             static const char *names[] = { "enum",  nullptr };
             return names;
         }
-        case FIELD_stage: {
+        case FIELD_state: {
             static const char *names[] = { "enum",  nullptr };
             return names;
         }
@@ -806,8 +842,8 @@ const char *MessageDescriptor::getFieldProperty(int field, const char *propertyn
         case FIELD_centrality:
             if (!strcmp(propertyname, "enum")) return "veins::centralityType";
             return nullptr;
-        case FIELD_stage:
-            if (!strcmp(propertyname, "enum")) return "veins::messageStage";
+        case FIELD_state:
+            if (!strcmp(propertyname, "enum")) return "veins::procedureState";
             return nullptr;
         default: return nullptr;
     }
@@ -851,14 +887,16 @@ std::string MessageDescriptor::getFieldValueAsString(void *object, int field, in
     }
     Message *pp = (Message *)object; (void)pp;
     switch (field) {
-        case FIELD_messageData: return oppstring2string(pp->getMessageData());
-        case FIELD_hopCount: return long2string(pp->getHopCount());
-        case FIELD_maxHops: return long2string(pp->getMaxHops());
-        case FIELD_searchFront: {std::stringstream out; out << pp->getSearchFront(); return out.str();}
         case FIELD_senderAddress: {std::stringstream out; out << pp->getSenderAddress(); return out.str();}
+        case FIELD_target: {std::stringstream out; out << pp->getTarget(); return out.str();}
+        case FIELD_maxHops: return long2string(pp->getMaxHops());
+        case FIELD_hopCount: return long2string(pp->getHopCount());
         case FIELD_type: return enum2string(pp->getType(), "veins::messageType");
         case FIELD_centrality: return enum2string(pp->getCentrality(), "veins::centralityType");
-        case FIELD_stage: return enum2string(pp->getStage(), "veins::messageStage");
+        case FIELD_state: return enum2string(pp->getState(), "veins::procedureState");
+        case FIELD_messageData: return oppstring2string(pp->getMessageData());
+        case FIELD_passedRsu: return bool2string(pp->getPassedRsu());
+        case FIELD_searchFront: {std::stringstream out; out << pp->getSearchFront(); return out.str();}
         case FIELD_senderPosition: {std::stringstream out; out << pp->getSenderPosition(); return out.str();}
         default: return "";
     }
@@ -874,12 +912,13 @@ bool MessageDescriptor::setFieldValueAsString(void *object, int field, int i, co
     }
     Message *pp = (Message *)object; (void)pp;
     switch (field) {
-        case FIELD_messageData: pp->setMessageData((value)); return true;
-        case FIELD_hopCount: pp->setHopCount(string2long(value)); return true;
         case FIELD_maxHops: pp->setMaxHops(string2long(value)); return true;
+        case FIELD_hopCount: pp->setHopCount(string2long(value)); return true;
         case FIELD_type: pp->setType((veins::messageType)string2enum(value, "veins::messageType")); return true;
         case FIELD_centrality: pp->setCentrality((veins::centralityType)string2enum(value, "veins::centralityType")); return true;
-        case FIELD_stage: pp->setStage((veins::messageStage)string2enum(value, "veins::messageStage")); return true;
+        case FIELD_state: pp->setState((veins::procedureState)string2enum(value, "veins::procedureState")); return true;
+        case FIELD_messageData: pp->setMessageData((value)); return true;
+        case FIELD_passedRsu: pp->setPassedRsu(string2bool(value)); return true;
         default: return false;
     }
 }
@@ -908,8 +947,9 @@ void *MessageDescriptor::getFieldStructValuePointer(void *object, int field, int
     }
     Message *pp = (Message *)object; (void)pp;
     switch (field) {
-        case FIELD_searchFront: return toVoidPtr(&pp->getSearchFront()); break;
         case FIELD_senderAddress: return toVoidPtr(&pp->getSenderAddress()); break;
+        case FIELD_target: return toVoidPtr(&pp->getTarget()); break;
+        case FIELD_searchFront: return toVoidPtr(&pp->getSearchFront()); break;
         case FIELD_senderPosition: return toVoidPtr(&pp->getSenderPosition()); break;
         default: return nullptr;
     }

@@ -18,8 +18,8 @@ void RsuHandler::initialize(int stage)
         Message* request = new Message();
 
         populateWSM(request);
-        request->setStage(messageStage::INITIALIZING);
-        request->setCentrality(centralityType::DEGREE);
+        request->setState(procedureState::INITIALIZING);
+        request->setCentrality(centralityType::CLOSENESS);
 
         scheduleAt(simTime() + 10, request);
     }
@@ -43,7 +43,9 @@ void RsuHandler::onWSM(BaseFrame1609_4* frame)
 
         std::list<Tuple>::iterator i;
         for (i = messageList.begin(); i != messageList.end(); i++)
-            EV << "MESSAGE ID IS " << i->id << endl;
+        {
+            EV << "MESSAGE ID IS " << i->source << " AND GENERATION TIME IS " << i->timestamp << endl;
+        }
 
         // Change color if you accepted the message
         findHost()->getDisplayString().setTagArg("i", 1, "green");
@@ -90,15 +92,15 @@ void RsuHandler::handleSelfMsg(cMessage* msg)
     // This code only runs when channel switching is enabled
     if (Message* wsm = dynamic_cast<Message*>(msg))
     {
-        messageStage stg = wsm->getStage();
+        procedureState stage = wsm->getState();
 
-        switch (stg)
+        switch (stage)
         {
-            case messageStage::INITIALIZING:
+            case procedureState::INITIALIZING:
                 requestCentrality(wsm->getCentrality());
                 break;
 
-            case messageStage::SENDING:
+            case procedureState::SENDING:
             {
                 if (wsm->getHopCount() < wsm->getMaxHops())
                 {
@@ -117,20 +119,13 @@ void RsuHandler::handleSelfMsg(cMessage* msg)
                 break;
             }
 
-            case messageStage::COLLECTING:      
+            case procedureState::COLLECTING:      
             {      
                 int counter = 0;
-                std::list<Tuple>::iterator i;
             
-                for (i = messageList.begin(); i != messageList.end(); i++)
-                {
-                    if (i->type == messageType::RSU_REPLY)
-                    {
-                        counter++;
-                    }
-                }
+                collectMessages(counter);
             
-                EV << "RSU DEGREE CENTRALITY IS " << counter << endl;
+                EV << "RSU CLOSENESS CENTRALITY IS " << calculateCloseness(counter) << endl;
                 break;
             }
 
@@ -149,6 +144,7 @@ void RsuHandler::handleBroadcast(Message* wsm)
     //TODO: Fix some parameters
 
     //Resend the message after 2s + delay
+    wsm->setSenderAddress(myId);
     wsm->setSenderPosition(curPosition);
     scheduleAt(simTime() + 2 + uniform(0.01, 0.2), wsm->dup());
 }
@@ -366,16 +362,15 @@ void RsuHandler::handleDegree(Message* wsm)
 
 void RsuHandler::handleCloseness(Message* wsm)
 {
-    std::list<LAddress::L2Type> searchList =  wsm->getSearchFront();
+    std::list<Tuple>::iterator i;
 
-    wsm->setSenderPosition(curPosition);
-    wsm->setRecipientAddress(*searchList.begin());
-
-    searchList.pop_front();
-    wsm->setSearchFront(searchList);    
-
-    // TODO: Check the dup method
-    scheduleAt(0.1, wsm->dup());
+    for (i = messageList.begin(); i != messageList.end(); i++)
+    {
+        if (i->type == messageType::RSU_REPLY)
+        {
+            EV << "SOURCE: " << i->source << "AND HOPS: " << i->hops << endl;
+        }
+    }
 }
 
 void RsuHandler::handleBetweenness(Message* wsm)
@@ -453,6 +448,7 @@ void RsuHandler::requestCentrality(centralityType centrality)
     populateWSM(request);
     request->setSenderAddress(myId);
     request->setSenderPosition(curPosition);
+
     EV << "RSU CURRENT POSITION IS " << curPosition << endl;
 
     request->setType(messageType::RSU_CHECK);
@@ -465,8 +461,15 @@ void RsuHandler::requestCentrality(centralityType centrality)
             request->setCentrality(centralityType::DEGREE);
             break;
         case (centralityType::CLOSENESS):
+        {
             request->setCentrality(centralityType::CLOSENESS);
+            
+            std::list<LAddress::L2Type> searchList;
+            searchList.insert(searchList.begin(), myId);
+            request->setSearchFront(searchList);
+            request->setMaxHops(10);
             break;
+        }
         case (centralityType::BETWEENNESS):
             request->setCentrality(centralityType::BETWEENNESS);
             break;
@@ -480,8 +483,69 @@ void RsuHandler::requestCentrality(centralityType centrality)
     Message* result = new Message();
 
     populateWSM(result);
-    result->setStage(messageStage::COLLECTING);
+    result->setState(procedureState::COLLECTING);
 
     scheduleAt(simTime() + 75, result);
 
 }
+
+// TODO: Name subject to change
+void RsuHandler::collectMessages(int &counter)
+{
+    std::list<Tuple>::iterator i;
+
+    for (i = messageList.begin(); i != messageList.end(); i++)
+    {
+        if (i->type == messageType::RSU_REPLY)
+        {
+            bool insert = true;
+
+            if (!collectionList.empty())
+            {                
+                // TODO: Maybe create different struct for this list, with less data
+                // TODO: The data required are: source, hops (and centralityType ?)
+
+                std::list<Tuple>::iterator j;
+                
+                for (j = collectionList.begin(); j != collectionList.end(); j++)
+                {
+                    if (i->source == j->source)
+                    {
+                        insert = false;
+
+                        if (j->hops > i->hops)
+                        {
+                            counter -= j->hops;
+                            counter += i->hops;
+
+                            j->hops = i->hops;
+
+                            EV << "COUNTER IS NOW: " << counter << endl;
+                        }
+
+                        break;
+                    }
+                }
+            }
+
+            if (insert)
+            {
+                collectionList.insert(collectionList.begin(), *i);
+                counter += i->hops;  
+                
+                EV << "COUNTER IS NOW: " << counter << endl;
+            }
+        }
+    }
+}
+
+double RsuHandler::calculateCloseness(int counter)
+{   
+    EV << "SIZE OF LIST IS " << collectionList.size() << endl;
+    double result = double(counter) / double(collectionList.size());
+
+    collectionList.clear();
+
+    return result;
+}
+

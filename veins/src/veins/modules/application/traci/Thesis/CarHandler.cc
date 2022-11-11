@@ -45,14 +45,16 @@ void CarHandler::onWSM(BaseFrame1609_4* frame)
     //Reject message if distance exceeds signal range
     if (distance < radioRange)
     {
-        if (acceptMessage(wsm))
+        if (acceptMessage(wsm))         // TODO: Change to additional condition
         {
+            /*
             // Pring message list, for debugging purposes
             EV << "MESSAGE ACCEPTED BY NODE " << myId << endl;
 
             std::list<Tuple>::iterator i;
             for (i = messageList.begin(); i != messageList.end(); i++)
                 EV << "MESSAGE ID IS " << i->id << endl;
+            */
 
             // Change color if you accepted the message
             findHost()->getDisplayString().setTagArg("i", 1, "green");
@@ -94,7 +96,6 @@ void CarHandler::onWSM(BaseFrame1609_4* frame)
 
 void CarHandler::handleSelfMsg(cMessage* msg)
 {
-    // Send this message on the service channel until the counter is 3 or higher.
     // This code only runs when channel switching is enabled
     if (Message* wsm = dynamic_cast<Message*>(msg))
     {
@@ -108,6 +109,7 @@ void CarHandler::handleSelfMsg(cMessage* msg)
         {
             // Stop service advertisements
             EV << "NODE WITH ID " << myId << " DELETING MESSAGE WITH ID " << wsm->getSenderAddress() << endl;
+
             stopService();
             delete(wsm);
         }
@@ -121,7 +123,8 @@ void CarHandler::handlePositionUpdate(cObject* obj)
 {
     DemoBaseApplLayer::handlePositionUpdate(obj);
 
-    // If the cas has stopped for at least 10s, it has crashed
+    // If the car has stopped for at least 10s, it has crashed
+    // TODO: Bring it up to date
     if (mobility->getSpeed() < 1)
     {
         if (simTime() - lastDroveAt >= 10 && sentMessage == false)
@@ -179,17 +182,17 @@ void CarHandler::handleBroadcast(Message* wsm)
 {
     //TODO: Fix some parameters
 
-    //Resend the message after 2s + delay
+    //Resend the message after 2s + random delay
     wsm->setSenderPosition(curPosition);
+
     scheduleAt(simTime() + 2 + uniform(0.01, 0.2), wsm->dup());
 }
 
 void CarHandler::handleRequest(Message* wsm)
 {
     // If you have info, send it and continue the broadcast
-    EV << "SIZE OF MESSAGELIST " << messageList.size() << endl;
 
-    // Iterators for the message list
+    // Variables for the message list
     std::list<Tuple>::iterator i;
     int spacing = 0;
 
@@ -198,21 +201,22 @@ void CarHandler::handleRequest(Message* wsm)
     {
         if (!i->data.empty())
         {
-            EV << "GENERATING REPLY NO. " << spacing + 1 << endl;
             Message* reply = new Message();
 
             populateWSM(reply);   
 
             reply->setSenderAddress(myId);
             reply->setSenderPosition(curPosition);
-            reply->setRecipientAddress(wsm->getSenderAddress());
+            reply->setTarget(wsm->getSenderAddress());
 
             reply->setType(messageType::REPLY);
 
             reply->setMessageData(i->data.c_str());
 
             spacing++;
-            scheduleAt(simTime() + spacing, reply);
+
+            // TODO: Again, check the ->dup(), delete();
+            scheduleAt(simTime() + spacing + uniform(0.01, 0.2), reply);
         }
     }
 
@@ -231,16 +235,21 @@ void CarHandler::handleReply(Message* wsm)
     */
 
     // If the message was not meant for you, forward
-    if (wsm->getRecipientAddress() != myId)
+    if (wsm->getTarget() != myId)
     {
         //Resend the message after 2s + delay
         wsm->setSenderPosition(curPosition);
+
         scheduleAt(simTime() + 2 + uniform(0.01, 0.2), wsm->dup());
     }
 
     // If the message was meant for you, accept
     else 
+    {
+        
+        findHost()->getDisplayString().setTagArg("i", 1, "gold");
         EV << "Message received after: " << wsm->getHopCount() + 1 << " hops.\n";
+    }
 }
 
 void CarHandler::handleRsuCheck(Message* wsm)
@@ -308,7 +317,8 @@ void CarHandler::closenessCentrality(Message* wsm)
     // If your id isn't already in the path list
     if (!isDuplicate(wsm))
     {
-        // Create a reply to give the RSU the path distance
+        EV << "Creating closeness centrality reply, node " << myId << endl;
+
         std::list<LAddress::L2Type> searchList =  wsm->getSearchFront();
 
         Message* reply = new Message();
@@ -317,24 +327,30 @@ void CarHandler::closenessCentrality(Message* wsm)
 
         reply->setSenderAddress(myId);
         reply->setSenderPosition(curPosition);
+        reply->setTarget(wsm->getSenderAddress());
         reply->setRecipientAddress(*searchList.begin());
-        
+
+        reply->setMaxHops(10);              // Changing the no. of hops, because it has to go through the entire graph
+
         searchList.pop_front();
         reply->setSearchFront(searchList);
 
         reply->setType(messageType::RSU_REPLY);
         reply->setCentrality(centralityType::CLOSENESS);
         
-        scheduleAt(simTime() + 0.1, reply);
+        scheduleAt(simTime() + 0.1 + uniform(0.01, 0.2), reply);
+        EV << "REPLY SENT, MESSAGE ID: " << reply->getSenderAddress() << endl;
 
         // Add your id to the path list and broadcast it again
         searchList = wsm->getSearchFront();
-        searchList.insert(searchList.end(), myId);
+        searchList.insert(searchList.begin(), myId);
 
         wsm->setSearchFront(searchList);
         wsm->setSenderPosition(curPosition);
 
-        scheduleAt(simTime() + 0.2, wsm->dup());
+        scheduleAt(simTime() + 0.2 + uniform(0.01, 0.2), wsm->dup());
+        EV << "MESSAGE FORWARDED, MESSAGE ID: " << wsm->getSenderAddress() << endl;
+        //TODO : Check if you should delete(wsm);
     }
 }
 
@@ -391,17 +407,25 @@ void CarHandler::betweennessCentrality(Message* wsm)
 
 // Functions for handling replies to centrality requests
 void CarHandler::handleCloseness(Message* wsm)
-{
+{        
     std::list<LAddress::L2Type> searchList =  wsm->getSearchFront();
 
-    wsm->setSenderPosition(curPosition);
-    wsm->setRecipientAddress(*searchList.begin());
+    std::list<LAddress::L2Type>::iterator i;
+    for (i = searchList.begin(); i != searchList.end(); i++)
+    {
+        EV << "HEY " << *i << endl;
+    }
 
+    EV << "HOPS: " << wsm->getHopCount() << endl;
+
+    wsm->setSenderPosition(curPosition);
+    wsm->setRecipientAddress(*searchList.begin());    
+    
     searchList.pop_front();
-    wsm->setSearchFront(searchList);    
+    wsm->setSearchFront(searchList);  
 
     // TODO: Check the dup method
-    scheduleAt(simTime() + 0.1, wsm->dup());
+    scheduleAt(simTime() + 0.1 + uniform(0.01, 0.2), wsm->dup());
 }
 
 void CarHandler::handleBetweenness(Message* wsm)
@@ -436,12 +460,13 @@ void CarHandler::requestInfo()
 
     populateWSM(wsm);
 
-    wsm->setType(messageType::REQUEST);
-
     wsm->setSenderAddress(myId);
     wsm->setSenderPosition(curPosition);
     
+    wsm->setType(messageType::REQUEST);
+    
     messageList.insert(messageList.begin(), Tuple(wsm));
+
     scheduleAt(simTime() + 1, wsm);
 }
 
@@ -449,19 +474,19 @@ void CarHandler::requestInfo()
 bool CarHandler::acceptMessage(Message* wsm)
 {
     EV << "NODE WITH ID " << myId << " RECEIVED MSG " << wsm->getSenderAddress() << endl;
+
     if (!messageList.empty())
     {
         std::list<Tuple>::iterator i;
         for (i = messageList.begin(); i != messageList.end(); i++)
         {
+            // Depending on the timestamp of the message, put it in the correct position
             if (i->timestamp > wsm->getCreationTime())
                 continue;
 
             if (i->timestamp == wsm->getCreationTime())
-            {
-                if (i->id == wsm->getSenderAddress())
+                if (i->source == wsm->getSenderAddress())
                     return false;
-            }
 
             if (i->timestamp < wsm->getCreationTime())
             {
@@ -471,6 +496,7 @@ bool CarHandler::acceptMessage(Message* wsm)
         }
     }
 
+    // If the messageList is empty, just accept the message and return true
     else 
     {
         messageList.insert(messageList.begin(), Tuple(wsm));
@@ -480,6 +506,8 @@ bool CarHandler::acceptMessage(Message* wsm)
 
 bool CarHandler::isDuplicate(Message* wsm)
 {
+    EV << "I'm here, node with ID " << myId << endl;
+
     std::list<LAddress::L2Type> searchList =  wsm->getSearchFront();
     std::list<LAddress::L2Type>::iterator i;
 

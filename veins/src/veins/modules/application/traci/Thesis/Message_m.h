@@ -91,7 +91,7 @@ enum centralityType {
 /**
  * Enum generated from <tt>veins/modules/application/traci/Thesis/Message.msg:34</tt> by nedtool.
  * <pre>
- * enum messageStage
+ * enum procedureState
  * {
  *     INITIALIZING = 0;
  *     SENDING = 1;
@@ -99,7 +99,7 @@ enum centralityType {
  * }
  * </pre>
  */
-enum messageStage {
+enum procedureState {
     INITIALIZING = 0,
     SENDING = 1,
     COLLECTING = 2
@@ -110,41 +110,39 @@ enum messageStage {
  * <pre>
  * packet Message extends BaseFrame1609_4
  * {
- *     // Message data
- *     string messageData = "";
- * 
- *     // Message TTL
- *     int hopCount = 0;
- *     int maxHops = 2;
- * 
- *     SearchFront searchFront;
- * 
- *     // Address of sender. Default is broadcast
  *     LAddress::L2Type senderAddress = -1;
+ *     LAddress::L2Type target;
  * 
- *     // Define message type. Default is broadcast
+ *     // Message properties
+ *     int maxHops = 1;
+ *     int hopCount = 0;
+ * 
+ *     // Message specifications
  *     messageType type = messageType::BROADCAST;
- *     // Define centrality type for centrality calculations. Default is none
  *     centralityType centrality = centralityType::NONE;
- *     // Define message stage. Used for collecting and initializing during selfMessage
- *     messageStage stage = messageStage::SENDING;
+ *     procedureState state = procedureState::SENDING;         // It might be pointless, but we'll see
  * 
- *     // Coordinates of the sender
- *     Coord senderPosition;
+ *     // Message data
+ *     string messageData = "";                                // Might be pointless as well
+ *     bool passedRsu = false;                                 // Variable to determine if message has passed from an RSU, might be pointless
+ *     SearchFront searchFront;                                // List used for centrality calculations
+ *     Coord senderPosition;                                   // Variable used for distance calculations
  * }
  * </pre>
  */
 class VEINS_API Message : public ::veins::BaseFrame1609_4
 {
   protected:
-    omnetpp::opp_string messageData = "";
-    int hopCount = 0;
-    int maxHops = 2;
-    SearchFront searchFront;
     LAddress::L2Type senderAddress = -1;
+    LAddress::L2Type target;
+    int maxHops = 1;
+    int hopCount = 0;
     veins::messageType type = messageType::BROADCAST;
     veins::centralityType centrality = centralityType::NONE;
-    veins::messageStage stage = messageStage::SENDING;
+    veins::procedureState state = procedureState::SENDING;
+    omnetpp::opp_string messageData = "";
+    bool passedRsu = false;
+    SearchFront searchFront;
     Coord senderPosition;
 
   private:
@@ -164,24 +162,29 @@ class VEINS_API Message : public ::veins::BaseFrame1609_4
     virtual void parsimUnpack(omnetpp::cCommBuffer *b) override;
 
     // field getter/setter methods
-    virtual const char * getMessageData() const;
-    virtual void setMessageData(const char * messageData);
-    virtual int getHopCount() const;
-    virtual void setHopCount(int hopCount);
-    virtual int getMaxHops() const;
-    virtual void setMaxHops(int maxHops);
-    virtual const SearchFront& getSearchFront() const;
-    virtual SearchFront& getSearchFrontForUpdate() { return const_cast<SearchFront&>(const_cast<Message*>(this)->getSearchFront());}
-    virtual void setSearchFront(const SearchFront& searchFront);
     virtual const LAddress::L2Type& getSenderAddress() const;
     virtual LAddress::L2Type& getSenderAddressForUpdate() { return const_cast<LAddress::L2Type&>(const_cast<Message*>(this)->getSenderAddress());}
     virtual void setSenderAddress(const LAddress::L2Type& senderAddress);
+    virtual const LAddress::L2Type& getTarget() const;
+    virtual LAddress::L2Type& getTargetForUpdate() { return const_cast<LAddress::L2Type&>(const_cast<Message*>(this)->getTarget());}
+    virtual void setTarget(const LAddress::L2Type& target);
+    virtual int getMaxHops() const;
+    virtual void setMaxHops(int maxHops);
+    virtual int getHopCount() const;
+    virtual void setHopCount(int hopCount);
     virtual veins::messageType getType() const;
     virtual void setType(veins::messageType type);
     virtual veins::centralityType getCentrality() const;
     virtual void setCentrality(veins::centralityType centrality);
-    virtual veins::messageStage getStage() const;
-    virtual void setStage(veins::messageStage stage);
+    virtual veins::procedureState getState() const;
+    virtual void setState(veins::procedureState state);
+    virtual const char * getMessageData() const;
+    virtual void setMessageData(const char * messageData);
+    virtual bool getPassedRsu() const;
+    virtual void setPassedRsu(bool passedRsu);
+    virtual const SearchFront& getSearchFront() const;
+    virtual SearchFront& getSearchFrontForUpdate() { return const_cast<SearchFront&>(const_cast<Message*>(this)->getSearchFront());}
+    virtual void setSearchFront(const SearchFront& searchFront);
     virtual const Coord& getSenderPosition() const;
     virtual Coord& getSenderPositionForUpdate() { return const_cast<Coord&>(const_cast<Message*>(this)->getSenderPosition());}
     virtual void setSenderPosition(const Coord& senderPosition);
