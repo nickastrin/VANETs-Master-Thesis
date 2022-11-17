@@ -21,6 +21,7 @@ namespace veins
 
             std::string roadInfo;
             std::list<Tuple> messageList;
+            std::list<Tuple> distanceList;
 
             simtime_t lastDroveAt;
         
@@ -29,26 +30,32 @@ namespace veins
             void onWSA(DemoServiceAdvertisment* wsa) override;
 
             void handleSelfMsg(cMessage* msg) override;
+            void sendingMessage(Message* wsm);
+            void collectingMessage(Message* wsm);
+
             void handlePositionUpdate(cObject* obj) override;
 
             // Message Handlers
             void handleBroadcast(Message* wsm);
             void handleRequest(Message* wsm);
             void handleReply(Message* wsm);
-            void handleRsuCheck(Message* wsm);
+            void handleRsuRequest(Message* wsm);
             void handleRsuReply(Message* wsm);
+            void handleCentralityRequest(Message* wsm);
+            void handleCentralityReply(Message* wsm);
 
             // Centrality Calculators
-            void degreeCentrality(Message* wsm);
-            void closenessCentrality(Message* wsm);
-            void betweennessCentrality(Message* wsm);
+            void degreeRequest(Message* wsm);
+            void closenessRequest(Message* wsm);
+            void betweennessRequest(Message* wsm);
 
             // Rsu Reply Handlers
-            void handleCloseness(Message* wsm);
-            void handleBetweenness(Message* wsm);
+            void closenessReply(Message* wsm);
+            void betweennessReply(Message* wsm);
 
             void requestInfo();
+            void shortestPaths(Message* wsm);
             bool acceptMessage(Message* wsm);
-            bool isDuplicate(Message* wsm);
+            bool inPath(std::list<long> path);
     };
 }

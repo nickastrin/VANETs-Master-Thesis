@@ -6,10 +6,10 @@ cplusplus
 {{
     #include <list>
 
-    typedef std::list<long> SearchFront;
+    typedef std::list<long> List;
 }};
 
-class SearchFront { @existingClass; };
+class List { @existingClass; };
 
 namespace veins;
 
@@ -18,8 +18,10 @@ enum messageType
     BROADCAST = 0;
     REQUEST = 1;
     REPLY = 2;
-    RSU_CHECK = 3;
-    RSU_REPLY = 4;
+    RSU_REQUEST = 3;
+    CENTRALITY_REQUEST = 4;
+    CENTRALITY_REPLY = 5;
+    RSU_REPLY = 6;
 };
 
 enum centralityType
@@ -40,20 +42,24 @@ enum procedureState
 packet Message extends BaseFrame1609_4
 {
     LAddress::L2Type senderAddress = -1;
+
+    LAddress::L2Type source;
     LAddress::L2Type target;
 
     // Message properties
     int maxHops = 1;
-    int hopCount = 0;
+    int hops = 0;
 
     // Message specifications
     messageType type = messageType::BROADCAST;
+    procedureState state = procedureState::SENDING;  
     centralityType centrality = centralityType::NONE;
-    procedureState state = procedureState::SENDING;         // It might be pointless, but we'll see
 
     // Message data
-    string messageData = "";                                // Might be pointless as well
-    bool passedRsu = false;                                 // Variable to determine if message has passed from an RSU, might be pointless
-    SearchFront searchFront;                                // List used for centrality calculations
+    string roadData = "";                                
+    int centralityData;
+
+    List rsuList;                                 // Variable to determine if message has passed from an RSU, might be pointless
+    List pathList;                                          // List used for centrality calculations
     Coord senderPosition;                                   // Variable used for distance calculations
 }

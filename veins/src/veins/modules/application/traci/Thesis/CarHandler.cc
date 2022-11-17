@@ -5,6 +5,8 @@ using namespace omnetpp;
 
 Define_Module(veins::CarHandler);
 
+// ---------------------------------------------------------------------- //
+
 void CarHandler::initialize(int stage)
 {
     // Initializing variables
@@ -43,81 +45,125 @@ void CarHandler::onWSM(BaseFrame1609_4* frame)
     int distance = int(traci->getDistance(curPosition, wsm->getSenderPosition(), false));
 
     //Reject message if distance exceeds signal range
-    if (distance < radioRange)
+    if (distance < radioRange && acceptMessage(wsm))
     {
-        if (acceptMessage(wsm))         // TODO: Change to additional condition
+        // Change color if you accepted the message
+        findHost()->getDisplayString().setTagArg("i", 1, "green");
+        
+        messageType type = wsm->getType();
+
+        switch (type)
         {
-            /*
-            // Pring message list, for debugging purposes
-            EV << "MESSAGE ACCEPTED BY NODE " << myId << endl;
-
-            std::list<Tuple>::iterator i;
-            for (i = messageList.begin(); i != messageList.end(); i++)
-                EV << "MESSAGE ID IS " << i->id << endl;
-            */
-
-            // Change color if you accepted the message
-            findHost()->getDisplayString().setTagArg("i", 1, "green");
-
-            messageType type = wsm->getType();
-
-            switch (type)
-            {
-                // If it's a broadcast
-                case messageType::BROADCAST:
-                    handleBroadcast(wsm);
-                    break;
-
-                // If it's an info request
-                case messageType::REQUEST:
-                    handleRequest(wsm);
-                    break;
-
-                // If it's an info reply
-                case messageType::REPLY:
-                    handleReply(wsm);
-                    break;
-                
-                // If it's an RSU Check
-                case messageType::RSU_CHECK:
-                    handleRsuCheck(wsm);
-                    break;
-
-                case messageType::RSU_REPLY:
-                    handleRsuReply(wsm);
-                    break;
-                    
-                default:
-                    break;
-            }
+            case messageType::BROADCAST:
+                handleBroadcast(wsm);
+                break;
+            case messageType::REQUEST:
+                handleRequest(wsm);
+                break;
+            case messageType::REPLY:
+                handleReply(wsm);
+                break;
+            case messageType::RSU_REQUEST:
+                handleRsuRequest(wsm);
+                break;
+            case messageType::CENTRALITY_REQUEST:
+                handleCentralityRequest(wsm);
+                break;
+            case messageType::CENTRALITY_REPLY:
+                handleCentralityReply(wsm);
+                break;
+            case messageType::RSU_REPLY:
+                handleRsuReply(wsm);
+                break;
+            default:
+                break;
         }
     }
 }
+
+// ---------------------------------------------------------------------- //
 
 void CarHandler::handleSelfMsg(cMessage* msg)
 {
     // This code only runs when channel switching is enabled
     if (Message* wsm = dynamic_cast<Message*>(msg))
     {
-        if (wsm->getHopCount() < wsm->getMaxHops())
-        {
-            wsm->setHopCount(wsm->getHopCount() + 1);
-            sendDown(wsm->dup());
-        }
+        procedureState state = wsm->getState();
 
-        else
+        switch (state)
         {
-            // Stop service advertisements
-            EV << "NODE WITH ID " << myId << " DELETING MESSAGE WITH ID " << wsm->getSenderAddress() << endl;
-
-            stopService();
-            delete(wsm);
+            case procedureState::INITIALIZING:
+                break;
+            case procedureState::SENDING:
+                sendingMessage(wsm);
+                break;
+            case procedureState::COLLECTING:
+                collectingMessage(wsm);
+                break;
+            default:
+                break;
         }
     }
 
     else
         DemoBaseApplLayer::handleSelfMsg(msg);
 }
+
+void CarHandler::sendingMessage(Message* wsm)
+{
+    // If the message doesn't exceed max hop count, 
+    if (wsm->getHops() < wsm->getMaxHops())
+    {
+        wsm->setHops(wsm->getHops() + 1);
+        sendDown(wsm->dup());
+    }
+
+    else
+    {
+        EV << "Node with ID " << myId << ", deleting message with ID " << wsm->getSenderAddress() << endl;
+
+        stopService();
+        delete(wsm);
+    }
+}
+
+void CarHandler::collectingMessage(Message* wsm)
+{
+    Message* reply = new Message();
+    populateWSM(reply);
+
+    reply->setSenderAddress(myId);
+    reply->setSenderPosition(curPosition);
+    reply->setTarget(wsm->getTarget());
+    reply->setMaxHops(20);
+    reply->setType(messageType::RSU_REPLY);
+    reply->setCentrality(centralityType::BETWEENNESS);
+
+    std::list<Tuple>::iterator i;
+    int counter = 0;
+
+    // TODO: Fix this to handle multiple RSUs
+    for (i = distanceList.begin(); i != distanceList.end(); i++)
+    {
+        if (!i->rsu.empty())
+        {
+            std::list<long>::iterator j;
+            
+            for (j = i->rsu.begin(); j != i->rsu.end(); j++)
+            {
+                if (*j == wsm->getTarget())
+                {
+                    reply->setCentralityData(reply->getCentralityData() + 1);
+                    break;
+                }
+            }
+        }
+    }
+
+    scheduleAt(simTime() + 0.1 + uniform(0.01, 0.2), reply);
+}
+
+// ---------------------------------------------------------------------- //
 
 void CarHandler::handlePositionUpdate(cObject* obj)
 {
@@ -140,8 +186,7 @@ void CarHandler::handlePositionUpdate(cObject* obj)
 
             wsm->setSenderAddress(myId);
             wsm->setSenderPosition(curPosition);
-
-            wsm->setMessageData(mobility->getRoadId().c_str());
+            wsm->setRoadData(mobility->getRoadId().c_str());
 
             // The host is standing still due to crash
             if (dataOnSch) 
@@ -177,15 +222,15 @@ void CarHandler::handlePositionUpdate(cObject* obj)
     }
 }
 
+// ---------------------------------------------------------------------- //
+
 // Functions for handling different types of messages
 void CarHandler::handleBroadcast(Message* wsm)
 {
-    //TODO: Fix some parameters
-
     //Resend the message after 2s + random delay
     wsm->setSenderPosition(curPosition);
 
-    scheduleAt(simTime() + 2 + uniform(0.01, 0.2), wsm->dup());
+    scheduleAt(simTime() + 2 + uniform(0.01, 0.2), wsm);
 }
 
 void CarHandler::handleRequest(Message* wsm)
@@ -194,12 +239,13 @@ void CarHandler::handleRequest(Message* wsm)
 
     // Variables for the message list
     std::list<Tuple>::iterator i;
-    int spacing = 0;
+    float delay = 1.0;
 
     // Create a reply for each one of your info messages
     for (i = messageList.begin(); i != messageList.end(); i++)
     {
-        if (!i->data.empty())
+        // Change to roadData
+        if (!i->roadData.empty())
         {
             Message* reply = new Message();
 
@@ -208,21 +254,19 @@ void CarHandler::handleRequest(Message* wsm)
             reply->setSenderAddress(myId);
             reply->setSenderPosition(curPosition);
             reply->setTarget(wsm->getSenderAddress());
-
             reply->setType(messageType::REPLY);
+            reply->setRoadData(i->roadData.c_str());
 
-            reply->setMessageData(i->data.c_str());
-
-            spacing++;
-
-            // TODO: Again, check the ->dup(), delete();
-            scheduleAt(simTime() + spacing + uniform(0.01, 0.2), reply);
+            delay += 0.1;
+            
+            messageList.push_front(Tuple(reply));
+            scheduleAt(simTime() + delay + uniform(0.01, 0.2), reply);
         }
     }
 
     // Then forward the message to reach others who might have info
     wsm->setSenderPosition(curPosition);
-    scheduleAt(simTime() + 2 + uniform(0.01, 0.2), wsm->dup());
+    scheduleAt(simTime() + 2 + uniform(0.01, 0.2), wsm);
 }
 
 void CarHandler::handleReply(Message* wsm)
@@ -240,22 +284,23 @@ void CarHandler::handleReply(Message* wsm)
         //Resend the message after 2s + delay
         wsm->setSenderPosition(curPosition);
 
-        scheduleAt(simTime() + 2 + uniform(0.01, 0.2), wsm->dup());
+        scheduleAt(simTime() + 2 + uniform(0.01, 0.2), wsm);
     }
 
     // If the message was meant for you, accept
     else 
     {
-        
         findHost()->getDisplayString().setTagArg("i", 1, "gold");
-        EV << "Message received after: " << wsm->getHopCount() + 1 << " hops.\n";
+
+        EV << "Message received after: " << wsm->getHops() + 1 << " hops.\n";
     }
 }
 
-void CarHandler::handleRsuCheck(Message* wsm)
+// ---------------------------------------------------------------------- //
+
+void CarHandler::handleRsuRequest(Message* wsm)
 {
     EV << wsm->getCentrality() << endl;
-    // TODO: Implementation for different centralities, based on Message Info
     centralityType centrality = wsm->getCentrality();
 
     switch(centrality)
@@ -263,18 +308,149 @@ void CarHandler::handleRsuCheck(Message* wsm)
         case (centralityType::NONE):
             break;
         case (centralityType::DEGREE):
-            degreeCentrality(wsm);
+            degreeRequest(wsm);
             break;
         case (centralityType::CLOSENESS):
-            closenessCentrality(wsm);
+            closenessRequest(wsm);
             break;
         case(centralityType::BETWEENNESS):
-            betweennessCentrality(wsm);
+            betweennessRequest(wsm);
             break;
         default:
              break;
     }
 }
+
+// Functions for handling different centrality calculations
+void CarHandler::degreeRequest(Message* wsm)
+{
+    EV << "Algorithm for degree centrality called..." << endl;
+
+    Message* reply = new Message();
+
+    populateWSM(reply);
+
+    reply->setSenderAddress(myId);
+    reply->setSenderPosition(curPosition);
+    reply->setRecipientAddress(wsm->getSenderAddress());
+    reply->setTarget(wsm->getSenderAddress());
+    reply->setType(messageType::RSU_REPLY);
+    reply->setCentrality(centralityType::DEGREE);
+
+    messageList.push_front(Tuple(reply));
+    scheduleAt(simTime() + 0.1 + uniform(0.01, 0.2), reply);
+}
+
+void CarHandler::closenessRequest(Message* wsm)
+{
+    EV << "Algorithm for closeness centrality called...\n";
+    shortestPaths(wsm);
+}
+
+void CarHandler::betweennessRequest(Message* wsm)
+{
+    EV << "Algorithm for betweenness centrality called...\n";
+    
+    // Create request to calculate shortest paths to node
+    Message* request = new Message();
+    populateWSM(request);
+
+    // TODO: Maybe you dont need the addresses after all...
+    request->setSenderAddress(myId);
+    request->setSenderPosition(curPosition);
+    request->setSource(wsm->getSenderAddress());
+
+    std::list<long> path = wsm->getPathList();
+    path.push_front(myId);
+
+    request->setPathList(path);
+    request->setMaxHops(20);
+    request->setType(messageType::CENTRALITY_REQUEST);
+    request->setCentrality(centralityType::BETWEENNESS);
+
+    messageList.push_front(Tuple(request));
+    scheduleAt(simTime() + 0.1 + uniform(0.01, 0.2), request);
+
+    // Broadcast the request of the RSU to other cars
+    wsm->setSenderPosition(curPosition);
+    scheduleAt(simTime() + 0.2 + uniform(0.01, 0.2), wsm->dup());
+
+    // After 5s, call collection to create RSU Reply
+    Message* collect = new Message();
+    populateWSM(collect);
+
+    collect->setTarget(wsm->getSenderAddress());
+    collect->setState(procedureState::COLLECTING);
+
+    scheduleAt(simTime() + 5 + uniform(0.01, 0.2), collect);
+}
+
+// ---------------------------------------------------------------------- //
+
+void CarHandler::handleCentralityRequest(Message* wsm)
+{
+    EV << "Handling car request...\n";
+    shortestPaths(wsm);
+}
+
+void CarHandler::handleCentralityReply(Message* wsm)
+{
+    std::list<long> path = wsm->getPathList();
+
+    // If you're the one who made the request, then gather the data and send to the RSU
+    if (path.empty())
+    {
+        EV << "Answer to my request received, node " << myId << endl;
+        std::list<Tuple>::iterator i;
+        bool insert = true;
+
+        for (i = distanceList.begin(); i != distanceList.end(); i++)
+        {
+            if (i->id == wsm->getSenderAddress())
+            {
+                insert = false;
+
+                if (i->hops > wsm->getHops())
+                {
+                    i->hops = wsm->getHops();
+                    i->rsu = wsm->getRsuList();
+                }
+                else if (i->hops == wsm->getHops())
+                {
+                    std::list<long> messageRsu = wsm->getRsuList();
+                    std::list<long> savedRsu = i->rsu;
+
+                    if (messageRsu.size() > savedRsu.size())
+                        i->rsu = wsm->getRsuList();
+                }
+
+                break;
+            }
+        }
+
+        if (insert)
+            distanceList.push_front(Tuple(wsm));
+
+
+        for (i = distanceList.begin(); i != distanceList.end(); i++)
+            EV << "Node with ID " << i->id << " and distance " << i->hops << endl;
+
+    }
+
+    else
+    {
+        wsm->setSenderPosition(curPosition);
+        wsm->setRecipientAddress(*path.begin());
+
+        path.pop_front();
+        
+        wsm->setPathList(path);
+
+        scheduleAt(simTime() + 0.1 + uniform(0.01, 0.2), wsm->dup());
+    }
+}
+
+// ---------------------------------------------------------------------- //
 
 void CarHandler::handleRsuReply(Message* wsm)
 {
@@ -287,167 +463,46 @@ void CarHandler::handleRsuReply(Message* wsm)
         case (centralityType::DEGREE):
             break;
         case (centralityType::CLOSENESS):
-            handleCloseness(wsm);
+            closenessReply(wsm);
             break;
         case (centralityType::BETWEENNESS):
-            handleBetweenness(wsm);
+            betweennessReply(wsm);
             break;
-    }
-}
-
-// Functions for handling different centrality calculations
-void CarHandler::degreeCentrality(Message* wsm)
-{
-    Message* reply = new Message();
-
-    populateWSM(reply);
-
-    reply->setSenderAddress(myId);
-    reply->setSenderPosition(curPosition);
-    reply->setRecipientAddress(wsm->getSenderAddress());
-
-    reply->setType(messageType::RSU_REPLY);
-    reply->setCentrality(centralityType::DEGREE);
-
-    scheduleAt(simTime() + 1 + uniform(0.01, 0.2), reply);
-}
-
-void CarHandler::closenessCentrality(Message* wsm)
-{
-    // If your id isn't already in the path list
-    if (!isDuplicate(wsm))
-    {
-        EV << "Creating closeness centrality reply, node " << myId << endl;
-
-        std::list<LAddress::L2Type> searchList =  wsm->getSearchFront();
-
-        Message* reply = new Message();
-
-        populateWSM(reply);
-
-        reply->setSenderAddress(myId);
-        reply->setSenderPosition(curPosition);
-        reply->setTarget(wsm->getSenderAddress());
-        reply->setRecipientAddress(*searchList.begin());
-
-        reply->setMaxHops(10);              // Changing the no. of hops, because it has to go through the entire graph
-
-        searchList.pop_front();
-        reply->setSearchFront(searchList);
-
-        reply->setType(messageType::RSU_REPLY);
-        reply->setCentrality(centralityType::CLOSENESS);
-        
-        scheduleAt(simTime() + 0.1 + uniform(0.01, 0.2), reply);
-        EV << "REPLY SENT, MESSAGE ID: " << reply->getSenderAddress() << endl;
-
-        // Add your id to the path list and broadcast it again
-        searchList = wsm->getSearchFront();
-        searchList.insert(searchList.begin(), myId);
-
-        wsm->setSearchFront(searchList);
-        wsm->setSenderPosition(curPosition);
-
-        scheduleAt(simTime() + 0.2 + uniform(0.01, 0.2), wsm->dup());
-        EV << "MESSAGE FORWARDED, MESSAGE ID: " << wsm->getSenderAddress() << endl;
-        //TODO : Check if you should delete(wsm);
-    }
-}
-
-void CarHandler::betweennessCentrality(Message* wsm)
-{
-    // If your id isn't already in the path list
-    if (!isDuplicate(wsm))
-    {
-        std::list<LAddress::L2Type> searchList =  wsm->getSearchFront();
-
-        // If you only have the RSU in the list, just forward the request
-        if (searchList.size() == 1)
-        {
-            searchList.insert(searchList.end(), myId);
-
-            wsm->setSearchFront(searchList);
-            wsm->setSenderAddress(myId);
-            wsm->setSenderPosition(curPosition);
-
-            scheduleAt(simTime() + 0.2, wsm->dup());
-        }
-
-        // Else create a reply and forward the original message
-        else
-        {
-            // The aforementioned reply is created here
-            Message* reply = new Message();
-
-            populateWSM(reply);
-
-            reply->setSenderAddress(myId);
-            reply->setSenderPosition(curPosition);
-            reply->setRecipientAddress(*searchList.begin());
-            
-            searchList.pop_front();
-            reply->setSearchFront(searchList);
-
-            reply->setType(messageType::RSU_REPLY);
-            reply->setCentrality(centralityType::BETWEENNESS);
-            
-            scheduleAt(simTime() + 0.1, reply);
-
-            // And here, the message is being forwarded 
-            searchList = wsm->getSearchFront();
-            searchList.insert(searchList.end(), myId);
-
-            wsm->setSearchFront(searchList);
-            wsm->setSenderPosition(curPosition);
-
-            scheduleAt(simTime() + 0.2, wsm->dup());
-        }
     }
 }
 
 // Functions for handling replies to centrality requests
-void CarHandler::handleCloseness(Message* wsm)
+void CarHandler::closenessReply(Message* wsm)
 {        
-    std::list<LAddress::L2Type> searchList =  wsm->getSearchFront();
+    std::list<long> path =  wsm->getPathList();
+    std::list<long>::iterator i;
 
-    std::list<LAddress::L2Type>::iterator i;
-    for (i = searchList.begin(); i != searchList.end(); i++)
-    {
-        EV << "HEY " << *i << endl;
-    }
-
-    EV << "HOPS: " << wsm->getHopCount() << endl;
+    for (i = path.begin(); i != path.end(); i++)
+        EV << "Node in path with id: " << *i << endl;
 
     wsm->setSenderPosition(curPosition);
-    wsm->setRecipientAddress(*searchList.begin());    
+    wsm->setRecipientAddress(*path.begin());    
     
-    searchList.pop_front();
-    wsm->setSearchFront(searchList);  
+    path.pop_front();
+
+    wsm->setPathList(path);  
 
     // TODO: Check the dup method
     scheduleAt(simTime() + 0.1 + uniform(0.01, 0.2), wsm->dup());
 }
 
-void CarHandler::handleBetweenness(Message* wsm)
+void CarHandler::betweennessReply(Message* wsm)
 {
-    std::list<LAddress::L2Type> searchList =  wsm->getSearchFront();
+    EV << "Forwarding RSU reply...\n";
 
-    // TODO: Maybe add check for multiple RSUs asking for centralities
-    if (searchList.size() == 1)
-        return;
-    
-    else 
-    {
-        wsm->setSenderPosition(curPosition);
-        wsm->setRecipientAddress(*searchList.begin());
+    EV << "Count is " << wsm->getCentralityData() << endl;
+    // Forward the message until it reaches the RSU
+    wsm->setSenderPosition(curPosition);
 
-        searchList.pop_front();
-        wsm->setSearchFront(searchList);    
-
-        // TODO: Check the dup method
-        scheduleAt(simTime() + 1 + uniform(0.01, 0.2), wsm->dup());   
-    }
+    scheduleAt(simTime() + 0.1 + uniform(0.01, 0.2), wsm->dup());
 }
+
+// ---------------------------------------------------------------------- //
 
 // Function for requesting info about network status
 void CarHandler::requestInfo()
@@ -456,24 +511,73 @@ void CarHandler::requestInfo()
     findHost()->getDisplayString().setTagArg("i", 1, "purple");
     sentMessage = true;
 
-    Message* wsm = new Message();
+    Message* request = new Message();
+    populateWSM(request);
 
-    populateWSM(wsm);
-
-    wsm->setSenderAddress(myId);
-    wsm->setSenderPosition(curPosition);
+    request->setSenderAddress(myId);
+    request->setSenderPosition(curPosition);
+    request->setType(messageType::REQUEST);
     
-    wsm->setType(messageType::REQUEST);
-    
-    messageList.insert(messageList.begin(), Tuple(wsm));
+    messageList.push_front(Tuple(request));
 
-    scheduleAt(simTime() + 1, wsm);
+    scheduleAt(simTime() + 1, request);
 }
 
-// Misc auxilary functions
+void CarHandler::shortestPaths(Message* wsm)
+{    
+    std::list<long> path = wsm->getPathList();
+
+    // If your id isn't already in the path list
+    if (!inPath(path))
+    {
+        EV << "Creating shortest path reply, node " << myId << endl;
+
+        Message* reply = new Message();
+        populateWSM(reply);
+
+        reply->setSenderAddress(myId);
+        reply->setSenderPosition(curPosition);
+        reply->setRecipientAddress(*path.begin());
+        reply->setTarget(wsm->getSource());
+        reply->setSource(wsm->getSenderAddress());
+        reply->setMaxHops(20);                          // Changing the no. of hops, because it has to go through the entire graph
+        
+        path.pop_front();
+
+        reply->setPathList(path);
+
+        if (wsm->getType() == messageType::RSU_REQUEST)
+        {
+            reply->setType(messageType::RSU_REPLY);
+            reply->setCentrality(centralityType::CLOSENESS);
+        }
+        else 
+        {
+            reply->setType(messageType::CENTRALITY_REPLY);
+            reply->setCentrality(centralityType::BETWEENNESS);
+            reply->setRsuList(wsm->getRsuList());
+        }
+        
+        messageList.push_front(Tuple(reply));
+        scheduleAt(simTime() + 0.1 + uniform(0.01, 0.2), reply);
+        EV << "Reply sent, message ID: " << reply->getSenderAddress() << endl;
+
+        // Add your id to the path list and broadcast it again
+        path = wsm->getPathList();
+        path.push_front(myId);
+
+        wsm->setPathList(path);
+        wsm->setSenderPosition(curPosition);
+
+        scheduleAt(simTime() + 0.2 + uniform(0.01, 0.2), wsm->dup());
+        EV << "Message forwarded, message ID: " << wsm->getSenderAddress() << endl;
+    }
+    
+}
+
 bool CarHandler::acceptMessage(Message* wsm)
 {
-    EV << "NODE WITH ID " << myId << " RECEIVED MSG " << wsm->getSenderAddress() << endl;
+    EV << "Node with ID " << myId << " received message from " << wsm->getSenderAddress() << endl;
 
     if (!messageList.empty())
     {
@@ -485,7 +589,7 @@ bool CarHandler::acceptMessage(Message* wsm)
                 continue;
 
             if (i->timestamp == wsm->getCreationTime())
-                if (i->source == wsm->getSenderAddress())
+                if (i->id == wsm->getSenderAddress())
                     return false;
 
             if (i->timestamp < wsm->getCreationTime())
@@ -496,22 +600,17 @@ bool CarHandler::acceptMessage(Message* wsm)
         }
     }
 
-    // If the messageList is empty, just accept the message and return true
-    else 
-    {
-        messageList.insert(messageList.begin(), Tuple(wsm));
-        return true;
-    }
+    messageList.push_front(Tuple(wsm));
+    return true;
 }
 
-bool CarHandler::isDuplicate(Message* wsm)
+bool CarHandler::inPath(std::list<long> path)
 {
     EV << "I'm here, node with ID " << myId << endl;
 
-    std::list<LAddress::L2Type> searchList =  wsm->getSearchFront();
-    std::list<LAddress::L2Type>::iterator i;
+    std::list<long>::iterator i;
 
-    for (i = searchList.begin(); i != searchList.end(); i++)
+    for (i = path.begin(); i != path.end(); i++)
     {
         if (*i == myId)
             return true;
@@ -520,3 +619,4 @@ bool CarHandler::isDuplicate(Message* wsm)
     return false;
 }
 
+// ---------------------------------------------------------------------- //

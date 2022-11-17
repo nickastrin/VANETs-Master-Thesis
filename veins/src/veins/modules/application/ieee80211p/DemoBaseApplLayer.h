@@ -74,17 +74,35 @@ public:
     // Struct for saving incoming messages
     struct Tuple
     {
-        LAddress::L2Type id;
+        long id;
+        long source;
+        long target;
 
         simtime_t timestamp;
-        std::string data;
+
+        int hops;
+        int centralityData;
+        std::string roadData;
+        std::list<long> rsu;
+
+        messageType type;
+        centralityType centrality;
 
         Tuple(Message* msg)
         {
             id = msg->getSenderAddress();
+            source = msg->getSenderAddress();
+            target = msg->getTarget();
                     
             timestamp = msg->getCreationTime();
-            data = msg->getMessageData();
+
+            hops = msg->getHops();
+            centralityData = msg->getCentralityData();
+            roadData = msg->getRoadData();
+            rsu = msg->getRsuList();
+
+            type = msg->getType();
+            centrality = msg->getCentrality();
         }
     };
 

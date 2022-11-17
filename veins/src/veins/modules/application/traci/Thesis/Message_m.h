@@ -42,7 +42,7 @@ class Message;
 // cplusplus {{
     #include <list>
 
-    typedef std::list<long> SearchFront;
+    typedef std::list<long> List;
 // }}
 
 
@@ -56,8 +56,10 @@ namespace veins {
  *     BROADCAST = 0;
  *     REQUEST = 1;
  *     REPLY = 2;
- *     RSU_CHECK = 3;
- *     RSU_REPLY = 4;
+ *     RSU_REQUEST = 3;
+ *     CENTRALITY_REQUEST = 4;
+ *     CENTRALITY_REPLY = 5;
+ *     RSU_REPLY = 6;
  * }
  * </pre>
  */
@@ -65,12 +67,14 @@ enum messageType {
     BROADCAST = 0,
     REQUEST = 1,
     REPLY = 2,
-    RSU_CHECK = 3,
-    RSU_REPLY = 4
+    RSU_REQUEST = 3,
+    CENTRALITY_REQUEST = 4,
+    CENTRALITY_REPLY = 5,
+    RSU_REPLY = 6
 };
 
 /**
- * Enum generated from <tt>veins/modules/application/traci/Thesis/Message.msg:26</tt> by nedtool.
+ * Enum generated from <tt>veins/modules/application/traci/Thesis/Message.msg:28</tt> by nedtool.
  * <pre>
  * enum centralityType
  * {
@@ -89,7 +93,7 @@ enum centralityType {
 };
 
 /**
- * Enum generated from <tt>veins/modules/application/traci/Thesis/Message.msg:34</tt> by nedtool.
+ * Enum generated from <tt>veins/modules/application/traci/Thesis/Message.msg:36</tt> by nedtool.
  * <pre>
  * enum procedureState
  * {
@@ -106,26 +110,30 @@ enum procedureState {
 };
 
 /**
- * Class generated from <tt>veins/modules/application/traci/Thesis/Message.msg:41</tt> by nedtool.
+ * Class generated from <tt>veins/modules/application/traci/Thesis/Message.msg:43</tt> by nedtool.
  * <pre>
  * packet Message extends BaseFrame1609_4
  * {
  *     LAddress::L2Type senderAddress = -1;
+ * 
+ *     LAddress::L2Type source;
  *     LAddress::L2Type target;
  * 
  *     // Message properties
  *     int maxHops = 1;
- *     int hopCount = 0;
+ *     int hops = 0;
  * 
  *     // Message specifications
  *     messageType type = messageType::BROADCAST;
+ *     procedureState state = procedureState::SENDING;
  *     centralityType centrality = centralityType::NONE;
- *     procedureState state = procedureState::SENDING;         // It might be pointless, but we'll see
  * 
  *     // Message data
- *     string messageData = "";                                // Might be pointless as well
- *     bool passedRsu = false;                                 // Variable to determine if message has passed from an RSU, might be pointless
- *     SearchFront searchFront;                                // List used for centrality calculations
+ *     string roadData = "";
+ *     int centralityData;
+ * 
+ *     List rsuList;                                 // Variable to determine if message has passed from an RSU, might be pointless
+ *     List pathList;                                          // List used for centrality calculations
  *     Coord senderPosition;                                   // Variable used for distance calculations
  * }
  * </pre>
@@ -134,15 +142,17 @@ class VEINS_API Message : public ::veins::BaseFrame1609_4
 {
   protected:
     LAddress::L2Type senderAddress = -1;
+    LAddress::L2Type source;
     LAddress::L2Type target;
     int maxHops = 1;
-    int hopCount = 0;
+    int hops = 0;
     veins::messageType type = messageType::BROADCAST;
-    veins::centralityType centrality = centralityType::NONE;
     veins::procedureState state = procedureState::SENDING;
-    omnetpp::opp_string messageData = "";
-    bool passedRsu = false;
-    SearchFront searchFront;
+    veins::centralityType centrality = centralityType::NONE;
+    omnetpp::opp_string roadData = "";
+    int centralityData = 0;
+    List rsuList;
+    List pathList;
     Coord senderPosition;
 
   private:
@@ -165,26 +175,32 @@ class VEINS_API Message : public ::veins::BaseFrame1609_4
     virtual const LAddress::L2Type& getSenderAddress() const;
     virtual LAddress::L2Type& getSenderAddressForUpdate() { return const_cast<LAddress::L2Type&>(const_cast<Message*>(this)->getSenderAddress());}
     virtual void setSenderAddress(const LAddress::L2Type& senderAddress);
+    virtual const LAddress::L2Type& getSource() const;
+    virtual LAddress::L2Type& getSourceForUpdate() { return const_cast<LAddress::L2Type&>(const_cast<Message*>(this)->getSource());}
+    virtual void setSource(const LAddress::L2Type& source);
     virtual const LAddress::L2Type& getTarget() const;
     virtual LAddress::L2Type& getTargetForUpdate() { return const_cast<LAddress::L2Type&>(const_cast<Message*>(this)->getTarget());}
     virtual void setTarget(const LAddress::L2Type& target);
     virtual int getMaxHops() const;
     virtual void setMaxHops(int maxHops);
-    virtual int getHopCount() const;
-    virtual void setHopCount(int hopCount);
+    virtual int getHops() const;
+    virtual void setHops(int hops);
     virtual veins::messageType getType() const;
     virtual void setType(veins::messageType type);
-    virtual veins::centralityType getCentrality() const;
-    virtual void setCentrality(veins::centralityType centrality);
     virtual veins::procedureState getState() const;
     virtual void setState(veins::procedureState state);
-    virtual const char * getMessageData() const;
-    virtual void setMessageData(const char * messageData);
-    virtual bool getPassedRsu() const;
-    virtual void setPassedRsu(bool passedRsu);
-    virtual const SearchFront& getSearchFront() const;
-    virtual SearchFront& getSearchFrontForUpdate() { return const_cast<SearchFront&>(const_cast<Message*>(this)->getSearchFront());}
-    virtual void setSearchFront(const SearchFront& searchFront);
+    virtual veins::centralityType getCentrality() const;
+    virtual void setCentrality(veins::centralityType centrality);
+    virtual const char * getRoadData() const;
+    virtual void setRoadData(const char * roadData);
+    virtual int getCentralityData() const;
+    virtual void setCentralityData(int centralityData);
+    virtual const List& getRsuList() const;
+    virtual List& getRsuListForUpdate() { return const_cast<List&>(const_cast<Message*>(this)->getRsuList());}
+    virtual void setRsuList(const List& rsuList);
+    virtual const List& getPathList() const;
+    virtual List& getPathListForUpdate() { return const_cast<List&>(const_cast<Message*>(this)->getPathList());}
+    virtual void setPathList(const List& pathList);
     virtual const Coord& getSenderPosition() const;
     virtual Coord& getSenderPositionForUpdate() { return const_cast<Coord&>(const_cast<Message*>(this)->getSenderPosition());}
     virtual void setSenderPosition(const Coord& senderPosition);
