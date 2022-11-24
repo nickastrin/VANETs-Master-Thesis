@@ -195,6 +195,12 @@ void CarHandler::cachingMessage()
         default:
             break;
     }
+    
+    Message* cache = new Message();
+    populateWSM(cache);
+
+    cache->setState(procedureState::CACHING);
+    scheduleAt(simTime() + 60 + uniform(0.01, 0.2), cache);
 }
 
 void CarHandler::cachingFIFO()
@@ -208,16 +214,10 @@ void CarHandler::cachingFIFO()
         std::list<Tuple>::iterator start = end;
 
         for (int i = 0; i < messagesToDelete; i++)
-            end--;
+            start--;
 
         messageList.erase(start, end);
     }
-
-    Message* cache = new Message();
-    populateWSM(cache);
-
-    cache->setState(procedureState::CACHING);
-    scheduleAt(simTime() + 60 + uniform(0.01, 0.2), cache);
 }
 
 void CarHandler::cachingLRU()
@@ -233,16 +233,10 @@ void CarHandler::cachingLRU()
         std::list<Tuple>::iterator start = end;
 
         for (int i = 0; i < messagesToDelete; i++)
-            end--;
+            start--;
 
         messageList.erase(start, end);
     }
-
-    Message* cache = new Message();
-    populateWSM(cache);
-
-    cache->setState(procedureState::CACHING);
-    scheduleAt(simTime() + 5 + uniform(0.01, 0.2), cache);
 }
 
 void CarHandler::cachingLFU()
@@ -258,16 +252,10 @@ void CarHandler::cachingLFU()
         std::list<Tuple>::iterator start = end;
 
         for (int i = 0; i < messagesToDelete; i++)
-            end--;
+            start--;
 
         messageList.erase(start, end);
     }
-
-    Message* cache = new Message();
-    populateWSM(cache);
-
-    cache->setState(procedureState::CACHING);
-    scheduleAt(simTime() + 5 + uniform(0.01, 0.2), cache);
 }
 
 // ---------------------------------------------------------------------- //
@@ -351,9 +339,12 @@ void CarHandler::handleRequest(Message* wsm)
     // Create a reply for each one of your info messages
     for (i = messageList.begin(); i != messageList.end(); i++)
     {
-        // Change to roadData
         if (!i->roadData.empty())
         {
+            // Change last used, and used frequency
+            i->usedFrequency += 1;
+            i->lastUsed = simTime();
+
             Message* reply = new Message();
 
             populateWSM(reply);   
@@ -687,7 +678,6 @@ void CarHandler::mergeSort(std::list<Tuple>& array)
     int midpoint = array.size() / 2;
     if (array.size() == 1)
         return;
-        
 
     std::list<Tuple>::iterator i = array.begin();
 

@@ -19,11 +19,13 @@ namespace veins
             int betweenness;
 
             double radioRange;
-            
-            std::string roadInfo;
-            std::list<Tuple> messageList;               // List used for cached message storage
-            std::list<Tuple> distanceList;            // List for the centrality calculation
+            int messagesToDelete;
+            int timeThreshold;
 
+            cachingPolicy policy;
+            
+            std::list<Tuple> messageList;               // List used for cached message storage
+            std::list<Tuple> distanceList;              // List for the centrality calculation
         protected:
             void onWSM(BaseFrame1609_4* wsm) override;
             void onWSA(DemoServiceAdvertisment* wsa) override;
@@ -32,6 +34,11 @@ namespace veins
             void initializingMessage(Message* wsm);
             void sendingMessage(Message* wsm);
             void collectingMessage(Message* wsm);
+            void cachingMessage();
+
+            void cachingFIFO();
+            void cachingLRU();
+            void cachingLFU();
 
             // Message Handlers
             void handleBroadcast(Message* wsm);
@@ -52,11 +59,11 @@ namespace veins
             void closenessReply(Message* wsm);
             void betweennessReply(Message* wsm);
 
-            //void shortestPaths(Message* wsm);
+            void mergeSort(std::list<Tuple>& array);
+            void mergeLRU(std::list<Tuple> &array, std::list<Tuple> left, std::list<Tuple> right);
+            void mergeLFU(std::list<Tuple> &array, std::list<Tuple> left, std::list<Tuple> right);
             bool inPath(std::list<long> path);
-
             bool acceptMessage(Message* wsm);
-            bool isDuplicate(Message* wsm);
 
     };
 }

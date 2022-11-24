@@ -5,6 +5,9 @@ using namespace omnetpp;
 
 Define_Module(veins::RsuHandler);
 
+// TODO: Mean response time, i need the metrics
+// TODO: Implement time threshold
+
 // ---------------------------------------------------------------------- //
 
 void RsuHandler::initialize(int stage)
@@ -14,14 +17,46 @@ void RsuHandler::initialize(int stage)
 
     if (stage == 0)
     {
-        // TODO: Change road info, redundant. Should just send message to self
         radioRange = 300;
-        roadInfo = "DUMMY INFO";
-
+        messagesToDelete = 5;
+        timeThreshold = 10;
+        
         degree = 0;
         closeness = 0;
         betweenness = 0;
 
+        policy = cachingPolicy::LFU;
+
+        // Create a message for dummy info, this is used for the simple info request scenario
+        Message* dummy = new Message();
+        populateWSM(dummy);
+
+        dummy->setRoadData("DUMMY INFO");
+        //messageList.push_front(Tuple(dummy));
+
+        // Create 10 messages to test caching policies
+        Tuple dummyTuple = Tuple(dummy);
+
+        for (int i = 0; i < 10; i++)
+        {
+            dummyTuple.usedFrequency = i + 1;
+            dummyTuple.lastUsed = 120 - (i + 1) * 10;
+
+            messageList.push_front(dummyTuple);
+        }
+
+        for (auto i = messageList.begin(); i != messageList.end(); i++)
+            EV << "Used frequency " << i->usedFrequency << " and Last Time Used " << i->lastUsed << endl;
+
+        // Create message to test caching policies
+        Message* caching = new Message();
+        populateWSM(caching);
+
+        caching->setState(procedureState::CACHING);
+        scheduleAt(simTime() + 20, caching);
+
+        // Create message to test centrality
+        /*
         Message* request = new Message();
         populateWSM(request);
 
@@ -30,6 +65,7 @@ void RsuHandler::initialize(int stage)
         request->setCentrality(centralityType::BETWEENNESS);
 
         scheduleAt(simTime() + 10, request);
+        */
     }
 }
 
@@ -89,10 +125,8 @@ void RsuHandler::onWSM(BaseFrame1609_4* frame)
 
 // ---------------------------------------------------------------------- //
 
-//TODO : Check this
 void RsuHandler::handleSelfMsg(cMessage* msg)
 {
-    // Send this message on the service channel until the counter is 3 or higher.
     // This code only runs when channel switching is enabled
     if (Message* wsm = dynamic_cast<Message*>(msg))
     {
@@ -108,6 +142,9 @@ void RsuHandler::handleSelfMsg(cMessage* msg)
                 break;
             case procedureState::COLLECTING:   
                 collectingMessage(wsm);
+                break;
+            case procedureState::CACHING:
+                cachingMessage();
                 break;
             default:
                 break;
@@ -264,6 +301,96 @@ void RsuHandler::collectingMessage(Message* wsm)
 
 // ---------------------------------------------------------------------- //
 
+// Functions for handling different types of caching policies
+void RsuHandler::cachingMessage()
+{
+    switch (policy)
+    {
+        case cachingPolicy::FIFO:
+            cachingFIFO();
+            break;
+        case cachingPolicy::LRU:
+            cachingLRU();
+            break;
+        case cachingPolicy::LFU:
+            cachingLFU();
+            break;
+        default:
+            break;
+    }
+
+    for (auto i = messageList.begin(); i != messageList.end(); i++)
+        EV << "Used frequency " << i->usedFrequency << " and Last Time Used " << i->lastUsed << endl;
+
+    Message* cache = new Message();
+    populateWSM(cache);
+
+    cache->setState(procedureState::CACHING);
+    scheduleAt(simTime() + 60 + uniform(0.01, 0.2), cache);
+}
+
+void RsuHandler::cachingFIFO()
+{
+    EV << "RSU Running FIFO algorithm...\n";
+
+    // TODO: EXPERIMENTAL
+    
+    if (messageList.size() < messagesToDelete)
+        messageList.clear();
+    else 
+    {
+        std::list<Tuple>::iterator end = messageList.end();
+        std::list<Tuple>::iterator start = end;
+
+        for (int i = 0; i < messagesToDelete; i++)
+            start--;
+
+        messageList.erase(start, end);
+    }
+}
+
+void RsuHandler::cachingLRU()
+{
+    EV << "RSU Running LRU algorithm...\n";
+    if (messageList.size() < messagesToDelete)
+        messageList.clear();
+
+    else 
+    {
+        mergeSort(messageList);
+
+        std::list<Tuple>::iterator end = messageList.end();
+        std::list<Tuple>::iterator start = end;
+
+        for (int i = 0; i < messagesToDelete; i++)
+            start--;
+
+        messageList.erase(start, end);
+    }
+}
+
+void RsuHandler::cachingLFU()
+{   
+    EV << "RSU Running LFU algorithm...\n";
+    if (messageList.size() < messagesToDelete)
+        messageList.clear();
+
+    else 
+    {
+        mergeSort(messageList);
+        
+        std::list<Tuple>::iterator end = messageList.end();
+        std::list<Tuple>::iterator start = end;
+
+        for (int i = 0; i < messagesToDelete; i++)
+            start--;
+
+        messageList.erase(start, end);
+    }
+}
+
+// ---------------------------------------------------------------------- //
+
 // Functions for handling different types of messages
 void RsuHandler::handleBroadcast(Message* wsm)
 {
@@ -287,6 +414,10 @@ void RsuHandler::handleRequest(Message* wsm)
         // Change to roadData
         if (!i->roadData.empty())
         {
+            // Change last used, and used frequency
+            i->usedFrequency += 1;
+            i->lastUsed = simTime();
+
             Message* reply = new Message();
 
             populateWSM(reply);   
@@ -664,34 +795,146 @@ void RsuHandler::betweennessReply(Message* wsm)
 
 // ---------------------------------------------------------------------- //
 
-/*
-void RsuHandler::shortestPaths(Message* wsm)
-{    
-    std::list<long> path = wsm->getPathList();
-    std::list<long> rsu = wsm->getRsuList();
+void RsuHandler::mergeSort(std::list<Tuple>& array)
+{
+    int midpoint = array.size() / 2;
+    if (array.size() == 1)
+        return;
+        
+    std::list<Tuple>::iterator i = array.begin();
 
-    // If your id isn't already in the path list
-    if (!inPath(path))
+    std::list<Tuple> left;
+    while (left.size() < midpoint)
     {
-        // Add your id to the path list and broadcast it again
-        path = wsm->getPathList();
-        path.push_front(myId);
-
-        if (!inPath(rsu))
-        {
-            rsu.push_front(myId);
-            wsm->setRsuList(rsu);
-        }
-
-        wsm->setPathList(path);
-        wsm->setSenderPosition(curPosition);
-
-        scheduleAt(simTime() + 0.2 + uniform(0.01, 0.2), wsm->dup());
-        EV << "Message forwarded, message ID: " << wsm->getSenderAddress() << endl;
+        left.push_back(*i);
+        i++;
+    }
+        
+    std::list<Tuple> right;
+    while (right.size() < array.size() - midpoint)
+    {
+        right.push_back(*i);
+        i++;
     }
     
+    mergeSort(left);
+    mergeSort(right);
+
+    if (policy == cachingPolicy::LRU)
+        mergeLRU(array, left, right);
+    else if (policy == cachingPolicy::LFU)
+        mergeLFU(array, left, right);
 }
-*/
+
+void RsuHandler::mergeLRU(std::list<Tuple> &array, std::list<Tuple> left, std::list<Tuple> right)
+{
+    std::list<Tuple>::iterator i = left.begin();
+    std::list<Tuple>::iterator j = right.begin();
+    std::list<Tuple>::iterator k = array.begin();
+    
+    while (i != left.end() && j != right.end())
+    {
+        if (i->lastUsed > j->lastUsed)
+        {
+            *k = *i;
+            i++;
+            k++;
+        }
+        
+        else if (j->lastUsed > i->lastUsed)
+        {            
+            *k = *j;
+            j++;
+            k++;
+        }
+
+        else if (i->lastUsed == j->lastUsed)
+        {
+            if (i->timestamp > j->timestamp)
+            {
+                *k = *i;
+                i++;
+                k++;  
+            }
+
+            else 
+            {
+                *k = *j;
+                j++;
+                k++;
+            }
+        }
+    }
+    
+    while (i != left.end())
+    {
+        *k = *i;
+        i++;
+        k++;
+    }
+    
+    while (j != right.end())
+    {
+        *k = *j;
+        j++;
+        k++;
+    }
+}
+
+void RsuHandler::mergeLFU(std::list<Tuple> &array, std::list<Tuple> left, std::list<Tuple> right)
+{
+    std::list<Tuple>::iterator i = left.begin();
+    std::list<Tuple>::iterator j = right.begin();
+    std::list<Tuple>::iterator k = array.begin();
+    
+    while (i != left.end() && j != right.end())
+    {
+        if (i->usedFrequency > j->usedFrequency)
+        {
+            *k = *i;
+            i++;
+            k++;
+        }
+        
+        else if (j->usedFrequency > i->usedFrequency)
+        {            
+            *k = *j;
+            j++;
+            k++;
+        }
+        
+        else if (i->lastUsed == j->lastUsed)
+        {
+            if (i->timestamp > j->timestamp)
+            {
+                *k = *i;
+                i++;
+                k++;  
+            }
+
+            else 
+            {
+                *k = *j;
+                j++;
+                k++;
+            }
+        }
+    }
+    
+    while (i != left.end())
+    {
+        *k = *i;
+        i++;
+        k++;
+    }
+    
+    while (j != right.end())
+    {
+        *k = *j;
+        j++;
+        k++;
+    }
+}
 
 bool RsuHandler::acceptMessage(Message* wsm)
 {
