@@ -37,6 +37,14 @@ enum procedureState
     INITIALIZING = 0;
     SENDING = 1;
     COLLECTING = 2;
+    CACHING = 3;
+}
+
+enum cachingPolicy
+{
+    FIFO = 0;
+    LRU = 1;
+    LFU = 2;
 }
 
 packet Message extends BaseFrame1609_4
@@ -59,7 +67,7 @@ packet Message extends BaseFrame1609_4
     string roadData = "";                                
     int centralityData;
 
-    List rsuList;                                 // Variable to determine if message has passed from an RSU, might be pointless
+    List rsuList;                                           // Variable to determine if message has passed from an RSU, might be pointless
     List pathList;                                          // List used for centrality calculations
     Coord senderPosition;                                   // Variable used for distance calculations
 }

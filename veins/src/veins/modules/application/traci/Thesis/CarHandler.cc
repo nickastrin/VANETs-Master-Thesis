@@ -18,9 +18,12 @@ void CarHandler::initialize(int stage)
         sentMessage = false;
 
         currentSubscribedServiceId = -1;
+        messagesToDelete = 5;                                   // Arbitrarily choose an amount of messages to delete
         radioRange = 300;
 
         lastDroveAt = simTime();
+
+        policy = cachingPolicy::FIFO;
     }
 }
 
@@ -100,6 +103,9 @@ void CarHandler::handleSelfMsg(cMessage* msg)
             case procedureState::COLLECTING:
                 collectingMessage(wsm);
                 break;
+            case procedureState::CACHING:
+                cachingMessage();
+                break;
             default:
                 break;
         }
@@ -161,6 +167,107 @@ void CarHandler::collectingMessage(Message* wsm)
     }
 
     scheduleAt(simTime() + 0.1 + uniform(0.01, 0.2), reply);
+}
+
+// ---------------------------------------------------------------------- //
+
+// TODO: Create a fix in the case of the car leaving the broadcast range before it can send the reply
+
+// A way to implement this could be when replying, wait for an acknowledgement from the person you sent the reply to
+// If the acknowledgement doenst come within 2s, resend the message as a broadcast 
+
+// ---------------------------------------------------------------------- //
+
+// Functions for handling different types of caching policies
+void CarHandler::cachingMessage()
+{
+    switch (policy)
+    {
+        case cachingPolicy::FIFO:
+            cachingFIFO();
+            break;
+        case cachingPolicy::LRU:
+            cachingLRU();
+            break;
+        case cachingPolicy::LFU:
+            cachingLFU();
+            break;
+        default:
+            break;
+    }
+}
+
+void CarHandler::cachingFIFO()
+{
+    if (messageList.size() < messagesToDelete)
+        messageList.clear();
+
+    else 
+    {
+        std::list<Tuple>::iterator end = messageList.end();
+        std::list<Tuple>::iterator start = end;
+
+        for (int i = 0; i < messagesToDelete; i++)
+            end--;
+
+        messageList.erase(start, end);
+    }
+
+    Message* cache = new Message();
+    populateWSM(cache);
+
+    cache->setState(procedureState::CACHING);
+    scheduleAt(simTime() + 60 + uniform(0.01, 0.2), cache);
+}
+
+void CarHandler::cachingLRU()
+{
+    if (messageList.size() < messagesToDelete)
+        messageList.clear();
+
+    else 
+    {
+        mergeSort(messageList);
+
+        std::list<Tuple>::iterator end = messageList.end();
+        std::list<Tuple>::iterator start = end;
+
+        for (int i = 0; i < messagesToDelete; i++)
+            end--;
+
+        messageList.erase(start, end);
+    }
+
+    Message* cache = new Message();
+    populateWSM(cache);
+
+    cache->setState(procedureState::CACHING);
+    scheduleAt(simTime() + 5 + uniform(0.01, 0.2), cache);
+}
+
+void CarHandler::cachingLFU()
+{   
+    if (messageList.size() < messagesToDelete)
+        messageList.clear();
+
+    else 
+    {
+        mergeSort(messageList);
+        
+        std::list<Tuple>::iterator end = messageList.end();
+        std::list<Tuple>::iterator start = end;
+
+        for (int i = 0; i < messagesToDelete; i++)
+            end--;
+
+        messageList.erase(start, end);
+    }
+
+    Message* cache = new Message();
+    populateWSM(cache);
+
+    cache->setState(procedureState::CACHING);
+    scheduleAt(simTime() + 5 + uniform(0.01, 0.2), cache);
 }
 
 // ---------------------------------------------------------------------- //
@@ -573,6 +680,114 @@ void CarHandler::shortestPaths(Message* wsm)
         EV << "Message forwarded, message ID: " << wsm->getSenderAddress() << endl;
     }
     
+}
+
+void CarHandler::mergeSort(std::list<Tuple>& array)
+{
+    int midpoint = array.size() / 2;
+    if (array.size() == 1)
+        return;
+        
+
+    std::list<Tuple>::iterator i = array.begin();
+
+    std::list<Tuple> left;
+    while (left.size() < midpoint)
+    {
+        left.push_back(*i);
+        i++;
+    }
+        
+    std::list<Tuple> right;
+    while (right.size() < array.size() - midpoint)
+    {
+        right.push_back(*i);
+        i++;
+    }
+    
+    mergeSort(left);
+    mergeSort(right);
+
+    if (policy == cachingPolicy::LRU)
+        mergeLRU(array, left, right);
+    else if (policy == cachingPolicy::LFU)
+        mergeLFU(array, left, right);
+}
+
+void CarHandler::mergeLRU(std::list<Tuple> &array, std::list<Tuple> left, std::list<Tuple> right)
+{
+    std::list<Tuple>::iterator i = left.begin();
+    std::list<Tuple>::iterator j = right.begin();
+    std::list<Tuple>::iterator k = array.begin();
+    
+    while (i != left.end() && j != right.end())
+    {
+        if (i->lastUsed >= j->lastUsed)
+        {
+            *k = *i;
+            i++;
+            k++;
+        }
+        
+        else if (j->lastUsed > i->lastUsed)
+        {            
+            *k = *j;
+            j++;
+            k++;
+        }
+    }
+    
+    while (i != left.end())
+    {
+        *k = *i;
+        i++;
+        k++;
+    }
+    
+    while (j != right.end())
+    {
+        *k = *j;
+        j++;
+        k++;
+    }
+}
+
+void CarHandler::mergeLFU(std::list<Tuple> &array, std::list<Tuple> left, std::list<Tuple> right)
+{
+    std::list<Tuple>::iterator i = left.begin();
+    std::list<Tuple>::iterator j = right.begin();
+    std::list<Tuple>::iterator k = array.begin();
+    
+    while (i != left.end() && j != right.end())
+    {
+        if (i->usedFrequency >= j->usedFrequency)
+        {
+            *k = *i;
+            i++;
+            k++;
+        }
+        
+        else if (j->usedFrequency > i->usedFrequency)
+        {            
+            *k = *j;
+            j++;
+            k++;
+        }
+    }
+    
+    while (i != left.end())
+    {
+        *k = *i;
+        i++;
+        k++;
+    }
+    
+    while (j != right.end())
+    {
+        *k = *j;
+        j++;
+        k++;
+    }
 }
 
 bool CarHandler::acceptMessage(Message* wsm)

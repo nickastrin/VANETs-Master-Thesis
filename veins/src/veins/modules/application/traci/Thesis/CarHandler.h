@@ -5,6 +5,7 @@
 #include <string.h>
 #include <list>
 #include <iterator>
+#include <algorithm>
 
 namespace veins
 {
@@ -17,6 +18,7 @@ namespace veins
             bool sentMessage;
 
             int currentSubscribedServiceId;
+            int messagesToDelete;
             double radioRange;
 
             std::string roadInfo;
@@ -24,6 +26,7 @@ namespace veins
             std::list<Tuple> distanceList;
 
             simtime_t lastDroveAt;
+            cachingPolicy policy;
         
         protected:
             void onWSM(BaseFrame1609_4* wsm) override;
@@ -32,6 +35,11 @@ namespace veins
             void handleSelfMsg(cMessage* msg) override;
             void sendingMessage(Message* wsm);
             void collectingMessage(Message* wsm);
+            void cachingMessage();
+
+            void cachingFIFO();
+            void cachingLRU();
+            void cachingLFU();
 
             void handlePositionUpdate(cObject* obj) override;
 
@@ -55,6 +63,9 @@ namespace veins
 
             void requestInfo();
             void shortestPaths(Message* wsm);
+            void mergeSort(std::list<Tuple>& array);
+            void mergeLRU(std::list<Tuple> &array, std::list<Tuple> left, std::list<Tuple> right);
+            void mergeLFU(std::list<Tuple> &array, std::list<Tuple> left, std::list<Tuple> right);
             bool acceptMessage(Message* wsm);
             bool inPath(std::list<long> path);
     };

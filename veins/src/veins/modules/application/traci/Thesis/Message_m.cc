@@ -451,6 +451,15 @@ EXECUTE_ON_STARTUP(
     e->insert(INITIALIZING, "INITIALIZING");
     e->insert(SENDING, "SENDING");
     e->insert(COLLECTING, "COLLECTING");
+    e->insert(CACHING, "CACHING");
+)
+
+EXECUTE_ON_STARTUP(
+    omnetpp::cEnum *e = omnetpp::cEnum::find("veins::cachingPolicy");
+    if (!e) omnetpp::enums.getInstance()->add(e = new omnetpp::cEnum("veins::cachingPolicy"));
+    e->insert(FIFO, "FIFO");
+    e->insert(LRU, "LRU");
+    e->insert(LFU, "LFU");
 )
 
 Register_Class(Message)

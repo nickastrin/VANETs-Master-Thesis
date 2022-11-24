@@ -100,17 +100,36 @@ enum centralityType {
  *     INITIALIZING = 0;
  *     SENDING = 1;
  *     COLLECTING = 2;
+ *     CACHING = 3;
  * }
  * </pre>
  */
 enum procedureState {
     INITIALIZING = 0,
     SENDING = 1,
-    COLLECTING = 2
+    COLLECTING = 2,
+    CACHING = 3
 };
 
 /**
- * Class generated from <tt>veins/modules/application/traci/Thesis/Message.msg:43</tt> by nedtool.
+ * Enum generated from <tt>veins/modules/application/traci/Thesis/Message.msg:44</tt> by nedtool.
+ * <pre>
+ * enum cachingPolicy
+ * {
+ *     FIFO = 0;
+ *     LRU = 1;
+ *     LFU = 2;
+ * }
+ * </pre>
+ */
+enum cachingPolicy {
+    FIFO = 0,
+    LRU = 1,
+    LFU = 2
+};
+
+/**
+ * Class generated from <tt>veins/modules/application/traci/Thesis/Message.msg:51</tt> by nedtool.
  * <pre>
  * packet Message extends BaseFrame1609_4
  * {
@@ -132,7 +151,7 @@ enum procedureState {
  *     string roadData = "";
  *     int centralityData;
  * 
- *     List rsuList;                                 // Variable to determine if message has passed from an RSU, might be pointless
+ *     List rsuList;                                           // Variable to determine if message has passed from an RSU, might be pointless
  *     List pathList;                                          // List used for centrality calculations
  *     Coord senderPosition;                                   // Variable used for distance calculations
  * }

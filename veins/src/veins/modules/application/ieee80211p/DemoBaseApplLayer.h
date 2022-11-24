@@ -79,8 +79,10 @@ public:
         long target;
 
         simtime_t timestamp;
+        simtime_t lastUsed;
 
         int hops;
+        int usedFrequency;
         int centralityData;
         std::string roadData;
         std::list<long> rsu;
@@ -95,14 +97,27 @@ public:
             target = msg->getTarget();
                     
             timestamp = msg->getCreationTime();
+            lastUsed = simTime();
 
             hops = msg->getHops();
+            usedFrequency = 1;
             centralityData = msg->getCentralityData();
             roadData = msg->getRoadData();
             rsu = msg->getRsuList();
 
             type = msg->getType();
             centrality = msg->getCentrality();
+        }
+
+        // Functions used to handle list sorting
+        static bool compareByLastUsed(const Tuple& a, const Tuple& b)
+        {
+            return a.lastUsed > b.lastUsed;
+        }
+
+        static bool compareByUsedFrequency(const Tuple& a, const Tuple& b)
+        {
+            return a.usedFrequency > b.usedFrequency;
         }
     };
 
