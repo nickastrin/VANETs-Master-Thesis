@@ -434,24 +434,18 @@ EXECUTE_ON_STARTUP(
     e->insert(CENTRALITY_REQUEST, "CENTRALITY_REQUEST");
     e->insert(CENTRALITY_REPLY, "CENTRALITY_REPLY");
     e->insert(RSU_REPLY, "RSU_REPLY");
+    e->insert(ACKNOWLEDGEMENT, "ACKNOWLEDGEMENT");
 )
 
 EXECUTE_ON_STARTUP(
-    omnetpp::cEnum *e = omnetpp::cEnum::find("veins::centralityType");
-    if (!e) omnetpp::enums.getInstance()->add(e = new omnetpp::cEnum("veins::centralityType"));
-    e->insert(NONE, "NONE");
-    e->insert(DEGREE, "DEGREE");
-    e->insert(CLOSENESS, "CLOSENESS");
-    e->insert(BETWEENNESS, "BETWEENNESS");
-)
-
-EXECUTE_ON_STARTUP(
-    omnetpp::cEnum *e = omnetpp::cEnum::find("veins::procedureState");
-    if (!e) omnetpp::enums.getInstance()->add(e = new omnetpp::cEnum("veins::procedureState"));
+    omnetpp::cEnum *e = omnetpp::cEnum::find("veins::currentState");
+    if (!e) omnetpp::enums.getInstance()->add(e = new omnetpp::cEnum("veins::currentState"));
     e->insert(INITIALIZING, "INITIALIZING");
     e->insert(SENDING, "SENDING");
     e->insert(COLLECTING, "COLLECTING");
     e->insert(CACHING, "CACHING");
+    e->insert(TESTING, "TESTING");
+    e->insert(REPEATING, "REPEATING");
 )
 
 EXECUTE_ON_STARTUP(
@@ -460,6 +454,22 @@ EXECUTE_ON_STARTUP(
     e->insert(FIFO, "FIFO");
     e->insert(LRU, "LRU");
     e->insert(LFU, "LFU");
+)
+
+EXECUTE_ON_STARTUP(
+    omnetpp::cEnum *e = omnetpp::cEnum::find("veins::scenario");
+    if (!e) omnetpp::enums.getInstance()->add(e = new omnetpp::cEnum("veins::scenario"));
+    e->insert(CENTRALITY, "CENTRALITY");
+    e->insert(CACHE, "CACHE");
+)
+
+EXECUTE_ON_STARTUP(
+    omnetpp::cEnum *e = omnetpp::cEnum::find("veins::selectedCentrality");
+    if (!e) omnetpp::enums.getInstance()->add(e = new omnetpp::cEnum("veins::selectedCentrality"));
+    e->insert(DEGREE, "DEGREE");
+    e->insert(CLOSENESS, "CLOSENESS");
+    e->insert(BETWEENNESS, "BETWEENNESS");
+    e->insert(NONE, "NONE");
 )
 
 Register_Class(Message)
@@ -490,6 +500,7 @@ void Message::copy(const Message& other)
     this->senderAddress = other.senderAddress;
     this->source = other.source;
     this->target = other.target;
+    this->testFlag = other.testFlag;
     this->maxHops = other.maxHops;
     this->hops = other.hops;
     this->type = other.type;
@@ -497,6 +508,7 @@ void Message::copy(const Message& other)
     this->centrality = other.centrality;
     this->roadData = other.roadData;
     this->centralityData = other.centralityData;
+    this->ackData = other.ackData;
     this->rsuList = other.rsuList;
     this->pathList = other.pathList;
     this->senderPosition = other.senderPosition;
@@ -508,6 +520,7 @@ void Message::parsimPack(omnetpp::cCommBuffer *b) const
     doParsimPacking(b,this->senderAddress);
     doParsimPacking(b,this->source);
     doParsimPacking(b,this->target);
+    doParsimPacking(b,this->testFlag);
     doParsimPacking(b,this->maxHops);
     doParsimPacking(b,this->hops);
     doParsimPacking(b,this->type);
@@ -515,6 +528,7 @@ void Message::parsimPack(omnetpp::cCommBuffer *b) const
     doParsimPacking(b,this->centrality);
     doParsimPacking(b,this->roadData);
     doParsimPacking(b,this->centralityData);
+    doParsimPacking(b,this->ackData);
     doParsimPacking(b,this->rsuList);
     doParsimPacking(b,this->pathList);
     doParsimPacking(b,this->senderPosition);
@@ -526,6 +540,7 @@ void Message::parsimUnpack(omnetpp::cCommBuffer *b)
     doParsimUnpacking(b,this->senderAddress);
     doParsimUnpacking(b,this->source);
     doParsimUnpacking(b,this->target);
+    doParsimUnpacking(b,this->testFlag);
     doParsimUnpacking(b,this->maxHops);
     doParsimUnpacking(b,this->hops);
     doParsimUnpacking(b,this->type);
@@ -533,6 +548,7 @@ void Message::parsimUnpack(omnetpp::cCommBuffer *b)
     doParsimUnpacking(b,this->centrality);
     doParsimUnpacking(b,this->roadData);
     doParsimUnpacking(b,this->centralityData);
+    doParsimUnpacking(b,this->ackData);
     doParsimUnpacking(b,this->rsuList);
     doParsimUnpacking(b,this->pathList);
     doParsimUnpacking(b,this->senderPosition);
@@ -568,6 +584,16 @@ void Message::setTarget(const LAddress::L2Type& target)
     this->target = target;
 }
 
+int Message::getTestFlag() const
+{
+    return this->testFlag;
+}
+
+void Message::setTestFlag(int testFlag)
+{
+    this->testFlag = testFlag;
+}
+
 int Message::getMaxHops() const
 {
     return this->maxHops;
@@ -598,22 +624,22 @@ void Message::setType(veins::messageType type)
     this->type = type;
 }
 
-veins::procedureState Message::getState() const
+veins::currentState Message::getState() const
 {
     return this->state;
 }
 
-void Message::setState(veins::procedureState state)
+void Message::setState(veins::currentState state)
 {
     this->state = state;
 }
 
-veins::centralityType Message::getCentrality() const
+veins::selectedCentrality Message::getCentrality() const
 {
     return this->centrality;
 }
 
-void Message::setCentrality(veins::centralityType centrality)
+void Message::setCentrality(veins::selectedCentrality centrality)
 {
     this->centrality = centrality;
 }
@@ -636,6 +662,16 @@ int Message::getCentralityData() const
 void Message::setCentralityData(int centralityData)
 {
     this->centralityData = centralityData;
+}
+
+omnetpp::simtime_t Message::getAckData() const
+{
+    return this->ackData;
+}
+
+void Message::setAckData(omnetpp::simtime_t ackData)
+{
+    this->ackData = ackData;
 }
 
 const List& Message::getRsuList() const
@@ -676,6 +712,7 @@ class MessageDescriptor : public omnetpp::cClassDescriptor
         FIELD_senderAddress,
         FIELD_source,
         FIELD_target,
+        FIELD_testFlag,
         FIELD_maxHops,
         FIELD_hops,
         FIELD_type,
@@ -683,6 +720,7 @@ class MessageDescriptor : public omnetpp::cClassDescriptor
         FIELD_centrality,
         FIELD_roadData,
         FIELD_centralityData,
+        FIELD_ackData,
         FIELD_rsuList,
         FIELD_pathList,
         FIELD_senderPosition,
@@ -748,7 +786,7 @@ const char *MessageDescriptor::getProperty(const char *propertyname) const
 int MessageDescriptor::getFieldCount() const
 {
     omnetpp::cClassDescriptor *basedesc = getBaseClassDescriptor();
-    return basedesc ? 13+basedesc->getFieldCount() : 13;
+    return basedesc ? 15+basedesc->getFieldCount() : 15;
 }
 
 unsigned int MessageDescriptor::getFieldTypeFlags(int field) const
@@ -763,6 +801,7 @@ unsigned int MessageDescriptor::getFieldTypeFlags(int field) const
         0,    // FIELD_senderAddress
         0,    // FIELD_source
         0,    // FIELD_target
+        FD_ISEDITABLE,    // FIELD_testFlag
         FD_ISEDITABLE,    // FIELD_maxHops
         FD_ISEDITABLE,    // FIELD_hops
         FD_ISEDITABLE,    // FIELD_type
@@ -770,11 +809,12 @@ unsigned int MessageDescriptor::getFieldTypeFlags(int field) const
         FD_ISEDITABLE,    // FIELD_centrality
         FD_ISEDITABLE,    // FIELD_roadData
         FD_ISEDITABLE,    // FIELD_centralityData
+        0,    // FIELD_ackData
         FD_ISCOMPOUND,    // FIELD_rsuList
         FD_ISCOMPOUND,    // FIELD_pathList
         0,    // FIELD_senderPosition
     };
-    return (field >= 0 && field < 13) ? fieldTypeFlags[field] : 0;
+    return (field >= 0 && field < 15) ? fieldTypeFlags[field] : 0;
 }
 
 const char *MessageDescriptor::getFieldName(int field) const
@@ -789,6 +829,7 @@ const char *MessageDescriptor::getFieldName(int field) const
         "senderAddress",
         "source",
         "target",
+        "testFlag",
         "maxHops",
         "hops",
         "type",
@@ -796,11 +837,12 @@ const char *MessageDescriptor::getFieldName(int field) const
         "centrality",
         "roadData",
         "centralityData",
+        "ackData",
         "rsuList",
         "pathList",
         "senderPosition",
     };
-    return (field >= 0 && field < 13) ? fieldNames[field] : nullptr;
+    return (field >= 0 && field < 15) ? fieldNames[field] : nullptr;
 }
 
 int MessageDescriptor::findField(const char *fieldName) const
@@ -810,16 +852,18 @@ int MessageDescriptor::findField(const char *fieldName) const
     if (fieldName[0] == 's' && strcmp(fieldName, "senderAddress") == 0) return base+0;
     if (fieldName[0] == 's' && strcmp(fieldName, "source") == 0) return base+1;
     if (fieldName[0] == 't' && strcmp(fieldName, "target") == 0) return base+2;
-    if (fieldName[0] == 'm' && strcmp(fieldName, "maxHops") == 0) return base+3;
-    if (fieldName[0] == 'h' && strcmp(fieldName, "hops") == 0) return base+4;
-    if (fieldName[0] == 't' && strcmp(fieldName, "type") == 0) return base+5;
-    if (fieldName[0] == 's' && strcmp(fieldName, "state") == 0) return base+6;
-    if (fieldName[0] == 'c' && strcmp(fieldName, "centrality") == 0) return base+7;
-    if (fieldName[0] == 'r' && strcmp(fieldName, "roadData") == 0) return base+8;
-    if (fieldName[0] == 'c' && strcmp(fieldName, "centralityData") == 0) return base+9;
-    if (fieldName[0] == 'r' && strcmp(fieldName, "rsuList") == 0) return base+10;
-    if (fieldName[0] == 'p' && strcmp(fieldName, "pathList") == 0) return base+11;
-    if (fieldName[0] == 's' && strcmp(fieldName, "senderPosition") == 0) return base+12;
+    if (fieldName[0] == 't' && strcmp(fieldName, "testFlag") == 0) return base+3;
+    if (fieldName[0] == 'm' && strcmp(fieldName, "maxHops") == 0) return base+4;
+    if (fieldName[0] == 'h' && strcmp(fieldName, "hops") == 0) return base+5;
+    if (fieldName[0] == 't' && strcmp(fieldName, "type") == 0) return base+6;
+    if (fieldName[0] == 's' && strcmp(fieldName, "state") == 0) return base+7;
+    if (fieldName[0] == 'c' && strcmp(fieldName, "centrality") == 0) return base+8;
+    if (fieldName[0] == 'r' && strcmp(fieldName, "roadData") == 0) return base+9;
+    if (fieldName[0] == 'c' && strcmp(fieldName, "centralityData") == 0) return base+10;
+    if (fieldName[0] == 'a' && strcmp(fieldName, "ackData") == 0) return base+11;
+    if (fieldName[0] == 'r' && strcmp(fieldName, "rsuList") == 0) return base+12;
+    if (fieldName[0] == 'p' && strcmp(fieldName, "pathList") == 0) return base+13;
+    if (fieldName[0] == 's' && strcmp(fieldName, "senderPosition") == 0) return base+14;
     return basedesc ? basedesc->findField(fieldName) : -1;
 }
 
@@ -835,18 +879,20 @@ const char *MessageDescriptor::getFieldTypeString(int field) const
         "veins::LAddress::L2Type",    // FIELD_senderAddress
         "veins::LAddress::L2Type",    // FIELD_source
         "veins::LAddress::L2Type",    // FIELD_target
+        "int",    // FIELD_testFlag
         "int",    // FIELD_maxHops
         "int",    // FIELD_hops
         "veins::messageType",    // FIELD_type
-        "veins::procedureState",    // FIELD_state
-        "veins::centralityType",    // FIELD_centrality
+        "veins::currentState",    // FIELD_state
+        "veins::selectedCentrality",    // FIELD_centrality
         "string",    // FIELD_roadData
         "int",    // FIELD_centralityData
+        "omnetpp::simtime_t",    // FIELD_ackData
         "List",    // FIELD_rsuList
         "List",    // FIELD_pathList
         "veins::Coord",    // FIELD_senderPosition
     };
-    return (field >= 0 && field < 13) ? fieldTypeStrings[field] : nullptr;
+    return (field >= 0 && field < 15) ? fieldTypeStrings[field] : nullptr;
 }
 
 const char **MessageDescriptor::getFieldPropertyNames(int field) const
@@ -887,10 +933,10 @@ const char *MessageDescriptor::getFieldProperty(int field, const char *propertyn
             if (!strcmp(propertyname, "enum")) return "veins::messageType";
             return nullptr;
         case FIELD_state:
-            if (!strcmp(propertyname, "enum")) return "veins::procedureState";
+            if (!strcmp(propertyname, "enum")) return "veins::currentState";
             return nullptr;
         case FIELD_centrality:
-            if (!strcmp(propertyname, "enum")) return "veins::centralityType";
+            if (!strcmp(propertyname, "enum")) return "veins::selectedCentrality";
             return nullptr;
         default: return nullptr;
     }
@@ -937,13 +983,15 @@ std::string MessageDescriptor::getFieldValueAsString(void *object, int field, in
         case FIELD_senderAddress: {std::stringstream out; out << pp->getSenderAddress(); return out.str();}
         case FIELD_source: {std::stringstream out; out << pp->getSource(); return out.str();}
         case FIELD_target: {std::stringstream out; out << pp->getTarget(); return out.str();}
+        case FIELD_testFlag: return long2string(pp->getTestFlag());
         case FIELD_maxHops: return long2string(pp->getMaxHops());
         case FIELD_hops: return long2string(pp->getHops());
         case FIELD_type: return enum2string(pp->getType(), "veins::messageType");
-        case FIELD_state: return enum2string(pp->getState(), "veins::procedureState");
-        case FIELD_centrality: return enum2string(pp->getCentrality(), "veins::centralityType");
+        case FIELD_state: return enum2string(pp->getState(), "veins::currentState");
+        case FIELD_centrality: return enum2string(pp->getCentrality(), "veins::selectedCentrality");
         case FIELD_roadData: return oppstring2string(pp->getRoadData());
         case FIELD_centralityData: return long2string(pp->getCentralityData());
+        case FIELD_ackData: return simtime2string(pp->getAckData());
         case FIELD_rsuList: {std::stringstream out; out << pp->getRsuList(); return out.str();}
         case FIELD_pathList: {std::stringstream out; out << pp->getPathList(); return out.str();}
         case FIELD_senderPosition: {std::stringstream out; out << pp->getSenderPosition(); return out.str();}
@@ -961,11 +1009,12 @@ bool MessageDescriptor::setFieldValueAsString(void *object, int field, int i, co
     }
     Message *pp = (Message *)object; (void)pp;
     switch (field) {
+        case FIELD_testFlag: pp->setTestFlag(string2long(value)); return true;
         case FIELD_maxHops: pp->setMaxHops(string2long(value)); return true;
         case FIELD_hops: pp->setHops(string2long(value)); return true;
         case FIELD_type: pp->setType((veins::messageType)string2enum(value, "veins::messageType")); return true;
-        case FIELD_state: pp->setState((veins::procedureState)string2enum(value, "veins::procedureState")); return true;
-        case FIELD_centrality: pp->setCentrality((veins::centralityType)string2enum(value, "veins::centralityType")); return true;
+        case FIELD_state: pp->setState((veins::currentState)string2enum(value, "veins::currentState")); return true;
+        case FIELD_centrality: pp->setCentrality((veins::selectedCentrality)string2enum(value, "veins::selectedCentrality")); return true;
         case FIELD_roadData: pp->setRoadData((value)); return true;
         case FIELD_centralityData: pp->setCentralityData(string2long(value)); return true;
         default: return false;

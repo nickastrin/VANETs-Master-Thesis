@@ -80,15 +80,19 @@ public:
 
         simtime_t timestamp;
         simtime_t lastUsed;
+        simtime_t received;
 
         int hops;
         int usedFrequency;
         int centralityData;
+
+        int retries;
+
         std::string roadData;
         std::list<long> rsu;
 
         messageType type;
-        centralityType centrality;
+        selectedCentrality centrality;
 
         Tuple(Message* msg)
         {
@@ -98,10 +102,14 @@ public:
                     
             timestamp = msg->getCreationTime();
             lastUsed = simTime();
+            received = simTime();
 
             hops = msg->getHops();
             usedFrequency = 1;
             centralityData = msg->getCentralityData();
+
+            retries = 0;
+
             roadData = msg->getRoadData();
             rsu = msg->getRsuList();
 

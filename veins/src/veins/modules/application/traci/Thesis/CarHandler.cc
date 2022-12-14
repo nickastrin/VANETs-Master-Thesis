@@ -91,19 +91,19 @@ void CarHandler::handleSelfMsg(cMessage* msg)
     // This code only runs when channel switching is enabled
     if (Message* wsm = dynamic_cast<Message*>(msg))
     {
-        procedureState state = wsm->getState();
+        currentState state = wsm->getState();
 
         switch (state)
         {
-            case procedureState::INITIALIZING:
+            case currentState::INITIALIZING:
                 break;
-            case procedureState::SENDING:
+            case currentState::SENDING:
                 sendingMessage(wsm);
                 break;
-            case procedureState::COLLECTING:
+            case currentState::COLLECTING:
                 collectingMessage(wsm);
                 break;
-            case procedureState::CACHING:
+            case currentState::CACHING:
                 cachingMessage();
                 break;
             default:
@@ -143,7 +143,7 @@ void CarHandler::collectingMessage(Message* wsm)
     reply->setTarget(wsm->getTarget());
     reply->setMaxHops(20);
     reply->setType(messageType::RSU_REPLY);
-    reply->setCentrality(centralityType::BETWEENNESS);
+    reply->setCentrality(selectedCentrality::BETWEENNESS);
 
     std::list<Tuple>::iterator i;
     int counter = 0;
@@ -199,7 +199,7 @@ void CarHandler::cachingMessage()
     Message* cache = new Message();
     populateWSM(cache);
 
-    cache->setState(procedureState::CACHING);
+    cache->setState(currentState::CACHING);
     scheduleAt(simTime() + 60 + uniform(0.01, 0.2), cache);
 }
 
@@ -399,19 +399,19 @@ void CarHandler::handleReply(Message* wsm)
 void CarHandler::handleRsuRequest(Message* wsm)
 {
     EV << wsm->getCentrality() << endl;
-    centralityType centrality = wsm->getCentrality();
+    selectedCentrality centrality = wsm->getCentrality();
 
     switch(centrality)
     {
-        case (centralityType::NONE):
+        case (selectedCentrality::NONE):
             break;
-        case (centralityType::DEGREE):
+        case (selectedCentrality::DEGREE):
             degreeRequest(wsm);
             break;
-        case (centralityType::CLOSENESS):
+        case (selectedCentrality::CLOSENESS):
             closenessRequest(wsm);
             break;
-        case(centralityType::BETWEENNESS):
+        case(selectedCentrality::BETWEENNESS):
             betweennessRequest(wsm);
             break;
         default:
@@ -433,7 +433,7 @@ void CarHandler::degreeRequest(Message* wsm)
     reply->setRecipientAddress(wsm->getSenderAddress());
     reply->setTarget(wsm->getSenderAddress());
     reply->setType(messageType::RSU_REPLY);
-    reply->setCentrality(centralityType::DEGREE);
+    reply->setCentrality(selectedCentrality::DEGREE);
 
     messageList.push_front(Tuple(reply));
     scheduleAt(simTime() + 0.1 + uniform(0.01, 0.2), reply);
@@ -464,7 +464,7 @@ void CarHandler::betweennessRequest(Message* wsm)
     request->setPathList(path);
     request->setMaxHops(20);
     request->setType(messageType::CENTRALITY_REQUEST);
-    request->setCentrality(centralityType::BETWEENNESS);
+    request->setCentrality(selectedCentrality::BETWEENNESS);
 
     messageList.push_front(Tuple(request));
     scheduleAt(simTime() + 0.1 + uniform(0.01, 0.2), request);
@@ -478,7 +478,7 @@ void CarHandler::betweennessRequest(Message* wsm)
     populateWSM(collect);
 
     collect->setTarget(wsm->getSenderAddress());
-    collect->setState(procedureState::COLLECTING);
+    collect->setState(currentState::COLLECTING);
 
     scheduleAt(simTime() + 5 + uniform(0.01, 0.2), collect);
 }
@@ -552,18 +552,18 @@ void CarHandler::handleCentralityReply(Message* wsm)
 
 void CarHandler::handleRsuReply(Message* wsm)
 {
-    centralityType centrality = wsm->getCentrality();
+    selectedCentrality centrality = wsm->getCentrality();
 
     switch (centrality)
     {
-        case (centralityType::NONE):
+        case (selectedCentrality::NONE):
             break;
-        case (centralityType::DEGREE):
+        case (selectedCentrality::DEGREE):
             break;
-        case (centralityType::CLOSENESS):
+        case (selectedCentrality::CLOSENESS):
             closenessReply(wsm);
             break;
-        case (centralityType::BETWEENNESS):
+        case (selectedCentrality::BETWEENNESS):
             betweennessReply(wsm);
             break;
     }
@@ -647,12 +647,12 @@ void CarHandler::shortestPaths(Message* wsm)
         if (wsm->getType() == messageType::RSU_REQUEST)
         {
             reply->setType(messageType::RSU_REPLY);
-            reply->setCentrality(centralityType::CLOSENESS);
+            reply->setCentrality(selectedCentrality::CLOSENESS);
         }
         else 
         {
             reply->setType(messageType::CENTRALITY_REPLY);
-            reply->setCentrality(centralityType::BETWEENNESS);
+            reply->setCentrality(selectedCentrality::BETWEENNESS);
             reply->setRsuList(wsm->getRsuList());
         }
         

@@ -22,22 +22,18 @@ enum messageType
     CENTRALITY_REQUEST = 4;
     CENTRALITY_REPLY = 5;
     RSU_REPLY = 6;
-};
+    ACKNOWLEDGEMENT = 7;
+}
 
-enum centralityType
+enum currentState
 {
-    NONE = 0;
-    DEGREE = 1;
-    CLOSENESS = 2;
-    BETWEENNESS = 3;
-};
 
-enum procedureState
-{
     INITIALIZING = 0;
     SENDING = 1;
     COLLECTING = 2;
     CACHING = 3;
+    TESTING = 4;
+    REPEATING = 5;
 }
 
 enum cachingPolicy
@@ -45,6 +41,20 @@ enum cachingPolicy
     FIFO = 0;
     LRU = 1;
     LFU = 2;
+}
+
+enum scenario
+{
+    CENTRALITY = 0;
+    CACHE = 1;
+}
+
+enum selectedCentrality
+{
+    DEGREE = 0;
+    CLOSENESS = 1;
+    BETWEENNESS = 2;
+    NONE = 3;
 }
 
 packet Message extends BaseFrame1609_4
@@ -55,17 +65,19 @@ packet Message extends BaseFrame1609_4
     LAddress::L2Type target;
 
     // Message properties
+    int testFlag = 0;
     int maxHops = 1;
     int hops = 0;
 
     // Message specifications
     messageType type = messageType::BROADCAST;
-    procedureState state = procedureState::SENDING;  
-    centralityType centrality = centralityType::NONE;
+    currentState state = currentState::SENDING;  
+    selectedCentrality centrality = selectedCentrality::NONE;
 
     // Message data
     string roadData = "";                                
     int centralityData;
+    simtime_t ackData;
 
     List rsuList;                                           // Variable to determine if message has passed from an RSU, might be pointless
     List pathList;                                          // List used for centrality calculations

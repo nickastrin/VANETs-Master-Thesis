@@ -5,10 +5,7 @@ using namespace omnetpp;
 
 Define_Module(veins::RsuHandler);
 
-// TODO: Mean response time, i need the metrics
-// TODO: Implement time threshold
-
-// ---------------------------------------------------------------------- //
+// -------------- INITIALIZERS --------------- //
 
 void RsuHandler::initialize(int stage)
 {
@@ -17,149 +14,88 @@ void RsuHandler::initialize(int stage)
 
     if (stage == 0)
     {
-        radioRange = 300;
-        messagesToDelete = 5;
-        timeThreshold = 10;
-        
+        // Initialize centrality metrics
         degree = 0;
         closeness = 0;
         betweenness = 0;
 
-        policy = cachingPolicy::LFU;
+        // Variables for the caching algorithm
+        capacity = 15;
+        threshold = 30;
+        flushed = 3;
 
-        // Create a message for dummy info, this is used for the simple info request scenario
-        Message* dummy = new Message();
-        populateWSM(dummy);
+        signalRange = 300;
+        maxHops = 20;
 
-        dummy->setRoadData("DUMMY INFO");
-        //messageList.push_front(Tuple(dummy));
+        policy = cachingPolicy::LRU;
+        testCase = scenario::CENTRALITY;
 
-        // Create 10 messages to test caching policies
-        Tuple dummyTuple = Tuple(dummy);
+        testScenario(testCase);
+        thresholdRequest();
+    }
+}
 
-        for (int i = 0; i < 10; i++)
-        {
-            dummyTuple.usedFrequency = i + 1;
-            dummyTuple.lastUsed = 120 - (i + 1) * 10;
-
-            messageList.push_front(dummyTuple);
-        }
-
-        for (auto i = messageList.begin(); i != messageList.end(); i++)
-            EV << "Used frequency " << i->usedFrequency << " and Last Time Used " << i->lastUsed << endl;
-
-        // Create message to test caching policies
-        Message* caching = new Message();
-        populateWSM(caching);
-
-        caching->setState(procedureState::CACHING);
-        scheduleAt(simTime() + 20, caching);
-
-        // Create message to test centrality
-        /*
-        Message* request = new Message();
+void RsuHandler::testScenario(scenario test)
+{
+    if (test == scenario::CENTRALITY)
+    {
+        // Create a request for selected centrality
+        Message * request = new Message();
         populateWSM(request);
 
-        request->setSenderAddress(myId);
-        request->setState(procedureState::INITIALIZING);
-        request->setCentrality(centralityType::BETWEENNESS);
+        request->setState(currentState::INITIALIZING);
+        request->setCentrality(selectedCentrality::BETWEENNESS);
 
         scheduleAt(simTime() + 10, request);
-        */
+    }
+
+    else if (test == scenario::CACHE)
+    {
+        // Create dummy messages to test the algorithm
+        Message * dummy = new Message();
+        populateWSM(dummy);
+
+        dummy->setState(currentState::TESTING);
+        receiveMessage(dummy, messageList, candidateList);
     }
 }
 
-void RsuHandler::onWSA(DemoServiceAdvertisment* wsa)
-{
-    // if this RSU receives a WSA for service 42, it will tune to the chan
-    if (wsa->getPsid() == 42) 
-        mac->changeServiceChannel(static_cast<Channel>(wsa->getTargetChannel()));
-}
+// -------------- SELF MESSAGE --------------- //
 
-void RsuHandler::onWSM(BaseFrame1609_4* frame)
+void RsuHandler::handleSelfMsg(cMessage * msg)
 {
-    Message* wsm = check_and_cast<Message*>(frame);
-    if (acceptMessage(wsm))
+    if (Message * wsm = dynamic_cast<Message *>(msg))
     {
-        // Pring message list, for debugging purposes
-        EV << "Message accepted by the RSU... " << myId << endl;
+        currentState state = wsm->getState();
 
-        std::list<Tuple>::iterator i;
-        for (i = messageList.begin(); i != messageList.end(); i++)
-            EV << "Message ID is " << i->id << " and generation time is " << i->timestamp << endl;
-
-        // Change color if you accepted the message
-        findHost()->getDisplayString().setTagArg("i", 1, "black");
-
-        messageType type = wsm->getType();
-
-        switch (type)
+        switch (state)
         {
-            case messageType::BROADCAST:
-                handleBroadcast(wsm);
-                break;
-            case messageType::REQUEST:
-                handleRequest(wsm);
-                break;
-            case messageType::REPLY:
-                handleReply(wsm);
-                break;
-            case messageType::RSU_REQUEST:
-                handleRsuRequest(wsm);
-                break;
-            case messageType::RSU_REPLY:
-                handleRsuReply(wsm);
-                break;
-            case messageType::CENTRALITY_REQUEST:
-                handleCentralityRequest(wsm);
-                break;
-            case messageType::CENTRALITY_REPLY:
-                handleCentralityReply(wsm);
-                break;
-            default:
-                break;
-            
-        }
-    }
-}
-
-// ---------------------------------------------------------------------- //
-
-void RsuHandler::handleSelfMsg(cMessage* msg)
-{
-    // This code only runs when channel switching is enabled
-    if (Message* wsm = dynamic_cast<Message*>(msg))
-    {
-        procedureState stage = wsm->getState();
-
-        switch (stage)
-        {
-            case procedureState::INITIALIZING:
+            case currentState::INITIALIZING:
                 initializingMessage(wsm);
-                break;
-            case procedureState::SENDING:
+                break;            
+            case currentState::SENDING:
                 sendingMessage(wsm);
                 break;
-            case procedureState::COLLECTING:   
-                collectingMessage(wsm);
+            case currentState::COLLECTING:
+                collectingMessage(wsm, distanceList, ackList);
                 break;
-            case procedureState::CACHING:
-                cachingMessage();
+            case currentState::CACHING:
+                thresholdControl(threshold, messageList, candidateList);
+                break;
+            case currentState::REPEATING:
+                repeatingMessage(wsm, ackList);
                 break;
             default:
                 break;
         }
     }
-
-    else
-        DemoBaseApplLayer::handleSelfMsg(msg);
 }
 
-void RsuHandler::initializingMessage(Message* wsm)
+void RsuHandler::initializingMessage(Message * wsm)
 {
-    EV << "Initilializing centrality calculations...\n"; 
+    EV << "Initializing centrality calculations...\n";
 
-    Message* request = new Message();
+    Message * request = new Message();
     populateWSM(request);
 
     request->setSenderAddress(myId);
@@ -167,50 +103,48 @@ void RsuHandler::initializingMessage(Message* wsm)
     request->setSource(myId);
     request->setType(messageType::RSU_REQUEST);
 
-    // Create request depending on centrality requested
-    switch(wsm->getCentrality())
-    {
-        case (centralityType::NONE):
-            break;
-        case (centralityType::DEGREE):
-            request->setCentrality(centralityType::DEGREE);
-            break;
-        case (centralityType::CLOSENESS):
-        {
-            request->setCentrality(centralityType::CLOSENESS);
-            
-            std::list<LAddress::L2Type> path;
-            path.insert(path.begin(), myId);
+    selectedCentrality centrality = wsm->getCentrality();
 
+    switch (centrality)
+    {
+        case selectedCentrality::DEGREE:
+            request->setCentrality(selectedCentrality::DEGREE);
+            break;
+        case selectedCentrality::CLOSENESS:
+        {
+            request->setCentrality(selectedCentrality::CLOSENESS);
+
+            std::list<long> path;
+            path.push_front(myId);
             request->setPathList(path);
-            request->setMaxHops(20);
+            request->setMaxHops(maxHops);
 
             break;
         }
-        case (centralityType::BETWEENNESS):
+        case selectedCentrality::BETWEENNESS:
         {
-            request->setCentrality(centralityType::BETWEENNESS);
+            // TODO: Maybe needs changing
+            request->setCentrality(selectedCentrality::BETWEENNESS);
             break;
         }
         default:
             break;
     }
-
+    
     scheduleAt(simTime() + 65, request);
 
     // Call collection after 10s
-    Message* collect= new Message();
+    Message * collect = new Message();
     populateWSM(collect);
 
     collect->setTarget(myId);
     collect->setCentrality(wsm->getCentrality());
-    collect->setState(procedureState::COLLECTING);
+    collect->setState(currentState::COLLECTING);
 
-    scheduleAt(simTime() + 75, collect);
-
+    scheduleAt(simTime() + 80, collect);
 }
 
-void RsuHandler::sendingMessage(Message* wsm)
+void RsuHandler::sendingMessage(Message * wsm)
 {
     // If the message doesn't exceed max hop count, 
     if (wsm->getHops() < wsm->getMaxHops())
@@ -228,226 +162,213 @@ void RsuHandler::sendingMessage(Message* wsm)
     }
 }
 
-void RsuHandler::collectingMessage(Message* wsm)
+void RsuHandler::collectingMessage(Message * wsm, std::list<Tuple> & array, std::list<Tuple> & ackArray)
 {
-    centralityType centrality = wsm->getCentrality();
+    selectedCentrality centrality = wsm->getCentrality();
     float result = 0;
 
-    if (centrality == centralityType::DEGREE)
+    switch (centrality)
     {
-        result = degree;
-
-        EV << "Degree Centrality is " << result << endl;
-    }
-
-    else if (centrality == centralityType::CLOSENESS)
-    {
-        std::list<Tuple>::iterator i;
-
-        for (i = distanceList.begin(); i != distanceList.end(); i++)
-            result += i->hops;
-
-        result = float(result) / float(distanceList.size());
-
-        EV << "Closeness Centrality is " << result << endl;
-    }
-
-    else if (centrality == centralityType::BETWEENNESS)
-    {
-        if (wsm->getTarget() == myId)
+        case selectedCentrality::NONE:
+            break;
+        case selectedCentrality::DEGREE:
         {
-            result = betweenness;
+            result = degree;
+            EV << "Degree centrality is " << result << endl;
 
-            EV << "Betweenness Centrality is " << result << endl;
+            break;
+        }
+        case selectedCentrality::CLOSENESS:
+        {
+            for (auto i = array.begin(); i != array.end(); i++)
+                result += i->hops;
+            
+            result = float(result) / float(array.size());
+            EV << "Closeness centrality is " << result << endl;
+
+            break;
+        }
+        // TODO: Maybe changes are needed
+        case selectedCentrality::BETWEENNESS:
+        {
+            if (wsm->getTarget() == myId)
+            {
+                result = betweenness;
+                EV << "Betweenness centrality is " << result << endl;
+            }
+
+            else 
+            {
+                Message * reply = new Message();
+                populateWSM(reply);
+
+                reply->setSenderAddress(myId);
+                reply->setSenderPosition(curPosition);
+                reply->setTarget(wsm->getTarget());
+                reply->setMaxHops(maxHops);
+                reply->setType(messageType::RSU_REPLY);
+                reply->setCentrality(selectedCentrality::BETWEENNESS);
+
+                for (auto i = array.begin(); i != array.end(); i++)
+                {
+                    if (!i->rsu.empty())
+                    {
+                        for (auto j = i->rsu.begin(); j != i->rsu.end(); j++)
+                        {
+                            if (*j == wsm->getTarget())
+                            {
+                                reply->setCentralityData(reply->getCentralityData() + 1);
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                scheduleAt(simTime() + 0.1 + uniform(0.01, 0.2), reply->dup());
+                
+                ackArray.push_front(Tuple(reply));
+                reply->setState(currentState::REPEATING);
+                scheduleAt(simTime() + 5 + uniform(0.01, 0.2), reply);
+            }
+        }
+    }
+}
+
+void RsuHandler::repeatingMessage(Message * wsm, std::list<Tuple> & array)
+{
+    for (auto i = array.begin(); i != array.end(); i++)
+    {
+        if (i->retries > 1)
+        {
+            array.erase(i);
+            break;
         }
 
-        else
+        if (wsm->getTarget() == i->target && wsm->getCreationTime() == i->timestamp)
         {
-            Message* reply = new Message();
+            i->retries += 1;
+            
+            // If message hasn't been acknowledged, reschedule repeat check
+            wsm->setMaxHops(wsm->getMaxHops() + 2);
+            scheduleAt(simTime() + uniform(0.01, 0.2), wsm->dup());
+            // And resend the message with higher hop count
+            wsm->setState(currentState::SENDING);
+            scheduleAt(simTime() + uniform(0.01, 0.2), wsm->dup());
+
+            break;
+        }
+    }
+}
+
+// --------------- ON MESSAGE ---------------- //
+
+void RsuHandler::onWSA(DemoServiceAdvertisment* wsa)
+{
+    // If this RSU receives a WSA for Service 42, it will tune to the channel
+    if (wsa->getPsid() == 42) 
+        mac->changeServiceChannel(static_cast<Channel>(wsa->getTargetChannel()));
+}
+
+void RsuHandler::onWSM(BaseFrame1609_4* frame)
+{
+    Message* wsm = check_and_cast<Message*>(frame);
+    if (receiveMessage(wsm, messageList, candidateList))
+    {
+        EV << "Message accepted by the RSU... " << myId << endl;
+
+        // Change color if you accepted the message
+        findHost()->getDisplayString().setTagArg("i", 1, "black");
+
+        messageType type = wsm->getType();
+
+        switch (type)
+        {
+            case messageType::BROADCAST:
+                handleBroadcast(wsm);
+                break;
+            case messageType::REQUEST:
+                handleRequest(wsm, messageList, candidateList, ackList);
+                break;
+            case messageType::REPLY:
+                handleReply(wsm);
+                break;
+            case messageType::RSU_REQUEST:
+                handleRsuRequest(wsm, ackList);
+                break;
+            case messageType::RSU_REPLY:
+                handleRsuReply(wsm, ackList);
+                break;
+            case messageType::CENTRALITY_REQUEST:
+                handleCentralityRequest(wsm, ackList);
+                break;
+            case messageType::CENTRALITY_REPLY:
+                handleCentralityReply(wsm, distanceList);
+                break;
+            case messageType::ACKNOWLEDGEMENT:
+                handleAcknowledgement(wsm, ackList);
+                break;
+            default:
+                break; 
+        }
+    }
+}
+
+// ------------ MESSAGE HANDLING ------------- //
+
+void RsuHandler::handleBroadcast(Message * wsm)
+{
+    //Resend the message after 2s + delay
+    wsm->setSenderPosition(curPosition);
+    scheduleAt(simTime() + 2 + uniform(0.01, 0.2), wsm->dup());
+}
+
+void RsuHandler::handleRequest(Message * wsm, std::list<Tuple> & msgArray, std::list<Tuple> & cndArray, std::list<Tuple> & ackArray)
+{
+    auxRequestHandler(wsm, msgArray, ackArray);
+    auxRequestHandler(wsm, cndArray, ackArray);
+
+    // Forward the message to other nodes
+    wsm->setSenderPosition(curPosition);
+    scheduleAt(simTime() + 2 + uniform(0.01, 0.2), wsm->dup());
+}
+
+void RsuHandler::auxRequestHandler(Message * msg, std::list<Tuple> & array, std::list<Tuple> & ackArray)
+{
+    float delay = 1.0;
+
+    for (auto i = array.begin(); i != array.end(); i++)
+    {
+        if (!i->roadData.empty())
+        {
+            i->usedFrequency += 1;
+            i->lastUsed = simTime();
+
+            Message * reply = new Message();
             populateWSM(reply);
 
             reply->setSenderAddress(myId);
             reply->setSenderPosition(curPosition);
-            reply->setTarget(wsm->getTarget());
-            reply->setMaxHops(20);
-            reply->setType(messageType::RSU_REPLY);
-            reply->setCentrality(centralityType::BETWEENNESS);
-
-            std::list<Tuple>::iterator i;
-            int counter = 0;
-
-            // TODO: Fix this to handle multiple RSUs
-            for (i = distanceList.begin(); i != distanceList.end(); i++)
-            {
-                if (!i->rsu.empty())
-                {
-                    std::list<long>::iterator j;
-                    
-                    for (j = i->rsu.begin(); j != i->rsu.end(); j++)
-                    {
-                        if (*j == wsm->getTarget())
-                        {
-                            reply->setCentralityData(reply->getCentralityData() + 1);
-                            break;
-                        }
-                    }
-                }
-            }
-
-            scheduleAt(simTime() + 0.1 + uniform(0.01, 0.2), reply);
-        }
-    }
-}
-
-// ---------------------------------------------------------------------- //
-
-// Functions for handling different types of caching policies
-void RsuHandler::cachingMessage()
-{
-    switch (policy)
-    {
-        case cachingPolicy::FIFO:
-            cachingFIFO();
-            break;
-        case cachingPolicy::LRU:
-            cachingLRU();
-            break;
-        case cachingPolicy::LFU:
-            cachingLFU();
-            break;
-        default:
-            break;
-    }
-
-    for (auto i = messageList.begin(); i != messageList.end(); i++)
-        EV << "Used frequency " << i->usedFrequency << " and Last Time Used " << i->lastUsed << endl;
-
-    Message* cache = new Message();
-    populateWSM(cache);
-
-    cache->setState(procedureState::CACHING);
-    scheduleAt(simTime() + 60 + uniform(0.01, 0.2), cache);
-}
-
-void RsuHandler::cachingFIFO()
-{
-    EV << "RSU Running FIFO algorithm...\n";
-
-    // TODO: EXPERIMENTAL
-    
-    if (messageList.size() < messagesToDelete)
-        messageList.clear();
-    else 
-    {
-        std::list<Tuple>::iterator end = messageList.end();
-        std::list<Tuple>::iterator start = end;
-
-        for (int i = 0; i < messagesToDelete; i++)
-            start--;
-
-        messageList.erase(start, end);
-    }
-}
-
-void RsuHandler::cachingLRU()
-{
-    EV << "RSU Running LRU algorithm...\n";
-    if (messageList.size() < messagesToDelete)
-        messageList.clear();
-
-    else 
-    {
-        mergeSort(messageList);
-
-        std::list<Tuple>::iterator end = messageList.end();
-        std::list<Tuple>::iterator start = end;
-
-        for (int i = 0; i < messagesToDelete; i++)
-            start--;
-
-        messageList.erase(start, end);
-    }
-}
-
-void RsuHandler::cachingLFU()
-{   
-    EV << "RSU Running LFU algorithm...\n";
-    if (messageList.size() < messagesToDelete)
-        messageList.clear();
-
-    else 
-    {
-        mergeSort(messageList);
-        
-        std::list<Tuple>::iterator end = messageList.end();
-        std::list<Tuple>::iterator start = end;
-
-        for (int i = 0; i < messagesToDelete; i++)
-            start--;
-
-        messageList.erase(start, end);
-    }
-}
-
-// ---------------------------------------------------------------------- //
-
-// Functions for handling different types of messages
-void RsuHandler::handleBroadcast(Message* wsm)
-{
-    //Resend the message after 2s + delay
-    wsm->setSenderPosition(curPosition);
-
-    scheduleAt(simTime() + 2 + uniform(0.01, 0.2), wsm->dup());
-}
-
-void RsuHandler::handleRequest(Message* wsm)
-{    
-    // If you have info, send it and continue the broadcast
-
-    // Variables for the message list
-    std::list<Tuple>::iterator i;
-    float delay = 1.0;
-
-    // Create a reply for each one of your info messages
-    for (i = messageList.begin(); i != messageList.end(); i++)
-    {
-        // Change to roadData
-        if (!i->roadData.empty())
-        {
-            // Change last used, and used frequency
-            i->usedFrequency += 1;
-            i->lastUsed = simTime();
-
-            Message* reply = new Message();
-
-            populateWSM(reply);   
-
-            reply->setSenderAddress(myId);
-            reply->setSenderPosition(curPosition);
-            reply->setTarget(wsm->getSenderAddress());
+            reply->setTarget(msg->getSenderAddress());
             reply->setType(messageType::REPLY);
             reply->setRoadData(i->roadData.c_str());
 
             delay += 0.1;
-            
-            messageList.push_front(Tuple(reply));
-            scheduleAt(simTime() + delay + uniform(0.01, 0.2), reply);
+            scheduleAt(simTime() + delay + uniform(0.01, 0.2), reply->dup());
+
+            ackArray.push_front(Tuple(reply));
+            reply->setState(currentState::REPEATING);
+            scheduleAt(simTime() + delay + 5 + uniform(0.01, 0.2), reply);
         }
     }
-
-    // Then forward the message to reach others who might have info
-    wsm->setSenderPosition(curPosition);
-    scheduleAt(simTime() + 2 + uniform(0.01, 0.2), wsm->dup());
 }
 
-void RsuHandler::handleReply(Message* wsm)
+void RsuHandler::handleReply(Message * wsm)
 {
     // If the message was not meant for you, forward
     if (wsm->getTarget() != myId)
     {
         //Resend the message after 2s + delay
         wsm->setSenderPosition(curPosition);
-
         scheduleAt(simTime() + 2 + uniform(0.01, 0.2), wsm->dup());
     }
 
@@ -455,40 +376,46 @@ void RsuHandler::handleReply(Message* wsm)
     else 
     {
         findHost()->getDisplayString().setTagArg("i", 1, "gold");
-
         EV << "Message received after: " << wsm->getHops() + 1 << " hops.\n";
+
+        Message * ack = new Message();
+        populateWSM(ack);
+
+        ack->setAckData(wsm->getCreationTime());
+        ack->setMaxHops(wsm->getMaxHops());
+        ack->setType(messageType::ACKNOWLEDGEMENT);
+
+        scheduleAt(simTime() + 0.1 + uniform(0.01, 0.2), ack);
     }
 }
 
-// ---------------------------------------------------------------------- //
+// --------------- RSU REQUEST --------------- //
 
-void RsuHandler::handleRsuRequest(Message* wsm)
+void RsuHandler::handleRsuRequest(Message * wsm, std::list<Tuple> & ackArray)
 {
-    // TODO: Implementation for different centralities, based on Message Info
-    centralityType centrality = wsm->getCentrality();
+    selectedCentrality centrality = wsm->getCentrality();
 
-    switch(centrality)
+    switch (centrality)
     {
-        case (centralityType::NONE):
+        case (selectedCentrality::NONE):
             break;
-        case (centralityType::DEGREE):
-            degreeRequest(wsm);
+        case selectedCentrality::DEGREE:
+            degreeRequest(wsm, ackArray);
             break;
-        case (centralityType::CLOSENESS):
-            closenessRequest(wsm);
+        case selectedCentrality::CLOSENESS:
+            closenessRequest(wsm, ackArray);
             break;
-        case(centralityType::BETWEENNESS):
+        case selectedCentrality::BETWEENNESS:
             betweennessRequest(wsm);
             break;
         default:
-             break;
+            break;
     }
 }
 
-// Functions for handling different centrality calculations
-void RsuHandler::degreeRequest(Message* wsm)
+void RsuHandler::degreeRequest(Message * msg, std::list<Tuple> & ackArray)
 {
-    EV << "RSU Algorithm for degree centrality called..." << endl;
+    EV << "RSU Algorithm for degree centrality called...\n";
 
     Message* reply = new Message();
 
@@ -496,57 +423,62 @@ void RsuHandler::degreeRequest(Message* wsm)
 
     reply->setSenderAddress(myId);
     reply->setSenderPosition(curPosition);
-    reply->setRecipientAddress(wsm->getSenderAddress());
+    reply->setTarget(msg->getSenderAddress());
     reply->setType(messageType::RSU_REPLY);
-    reply->setCentrality(centralityType::DEGREE);
+    reply->setCentrality(selectedCentrality::DEGREE);
 
-    messageList.push_front(Tuple(reply));
-    scheduleAt(simTime() + 0.1 + uniform(0.01, 0.2), reply);
+    scheduleAt(simTime() + 0.1 + uniform(0.01, 0.2), reply->dup());
+
+    ackArray.push_front(Tuple(reply));
+    reply->setState(currentState::REPEATING);
+    scheduleAt(simTime() + 5 + uniform(0.01, 0.2), reply);
 }
 
-void RsuHandler::closenessRequest(Message* wsm)
+void RsuHandler::closenessRequest(Message * msg, std::list<Tuple> & ackArray)
 {
     EV << "RSU Algorithm for closeness centrality called...\n";
-    std::list<long> path = wsm->getPathList();
+    std::list<long> path = msg->getPathList();
 
-    // If your id isn't already in the path list
     if (!inPath(path))
     {
         EV << "Creating shortest path reply, node " << myId << endl;
 
-        Message* reply = new Message();
+        Message * reply = new Message();
         populateWSM(reply);
 
         reply->setSenderAddress(myId);
         reply->setSenderPosition(curPosition);
-        reply->setRecipientAddress(*path.begin());
-        reply->setTarget(wsm->getSource());
-        reply->setSource(wsm->getSenderAddress());
-        reply->setMaxHops(20);                          // Changing the no. of hops, because it has to go through the entire graph
-        
+        reply->setRecipientAddress(*path.begin());          // TODO: There might be a problem here
+        reply->setTarget(msg->getSource());
+        reply->setSource(msg->getSenderAddress());
+        reply->setMaxHops(maxHops);
+
         path.pop_front();
 
         reply->setPathList(path);
         reply->setType(messageType::RSU_REPLY);
-        reply->setCentrality(centralityType::CLOSENESS);
+        reply->setCentrality(selectedCentrality::CLOSENESS);
 
-        messageList.push_front(Tuple(reply));
         scheduleAt(simTime() + 0.1 + uniform(0.01, 0.2), reply);
         EV << "Reply sent, message ID: " << reply->getSenderAddress() << endl;
 
+        ackArray.push_front(Tuple(reply));
+        reply->setState(currentState::REPEATING);
+        scheduleAt(simTime() + 5 + uniform(0.01, 0.2), reply);
+
         // Add your id to the path list and broadcast it again
-        path = wsm->getPathList();
+        path = msg->getPathList();
         path.push_front(myId);
 
-        wsm->setPathList(path);
-        wsm->setSenderPosition(curPosition);
+        msg->setPathList(path);
+        msg->setSenderPosition(curPosition);
 
-        scheduleAt(simTime() + 0.2 + uniform(0.01, 0.2), wsm->dup());
-        EV << "Message forwarded, message ID: " << wsm->getSenderAddress() << endl;
+        scheduleAt(simTime() + 0.2 + uniform(0.01, 0.2), msg->dup());
+        EV << "Message forwarded, message ID: " << msg->getSenderAddress() << endl;
     }
 }
 
-void RsuHandler::betweennessRequest(Message* wsm)
+void RsuHandler::betweennessRequest(Message * msg)
 {
     EV << "RSU Algorithm for betweenness centrality called...\n";
     
@@ -557,38 +489,37 @@ void RsuHandler::betweennessRequest(Message* wsm)
     // TODO: Maybe you dont need the addresses after all...
     request->setSenderAddress(myId);
     request->setSenderPosition(curPosition);
-    request->setSource(wsm->getSenderAddress());
+    request->setSource(msg->getSenderAddress());
 
-    std::list<long> path = wsm->getPathList();
+    std::list<long> path = msg->getPathList();
     path.push_front(myId);
 
     request->setPathList(path);
-    request->setMaxHops(20);
+    request->setMaxHops(maxHops);
     request->setType(messageType::CENTRALITY_REQUEST);
-    request->setCentrality(centralityType::BETWEENNESS);
+    request->setCentrality(selectedCentrality::BETWEENNESS);
 
-    messageList.push_front(Tuple(request));
     scheduleAt(simTime() + 0.1 + uniform(0.01, 0.2), request);
 
     // Broadcast the request of the RSU to other cars
-    wsm->setSenderPosition(curPosition);
-    scheduleAt(simTime() + 0.2 + uniform(0.01, 0.2), wsm->dup());
+    msg->setSenderPosition(curPosition);
+    scheduleAt(simTime() + 0.2 + uniform(0.01, 0.2), msg->dup());
 
     // After 5s, call collection to create RSU Reply
     Message* collect = new Message();
     populateWSM(collect);
 
     // TODO: Maybe change to getSource()
-    collect->setTarget(wsm->getSenderAddress());
-    collect->setCentrality(centralityType::BETWEENNESS);
-    collect->setState(procedureState::COLLECTING);
+    collect->setTarget(msg->getSenderAddress());
+    collect->setCentrality(selectedCentrality::BETWEENNESS);
+    collect->setState(currentState::COLLECTING);
 
     scheduleAt(simTime() + 5 + uniform(0.01, 0.2), collect);
 }
 
-// ---------------------------------------------------------------------- //
+// ----------- CENTRALITY HANDLING ----------- //
 
-void RsuHandler::handleCentralityRequest(Message* wsm)
+void RsuHandler::handleCentralityRequest(Message * wsm, std::list<Tuple> & ackArray)
 {
     EV << "RSU Handling centrality request...\n";
 
@@ -608,18 +539,21 @@ void RsuHandler::handleCentralityRequest(Message* wsm)
         reply->setRecipientAddress(*path.begin());
         reply->setTarget(wsm->getSource());
         reply->setSource(wsm->getSenderAddress());
-        reply->setMaxHops(20);                          // Changing the no. of hops, because it has to go through the entire graph
-        
+        reply->setMaxHops(maxHops);                         
+
         path.pop_front();
 
         reply->setPathList(path);
         reply->setType(messageType::CENTRALITY_REPLY);
-        reply->setCentrality(centralityType::BETWEENNESS);
+        reply->setCentrality(selectedCentrality::BETWEENNESS);
         reply->setRsuList(wsm->getRsuList());
 
-        messageList.push_front(Tuple(reply));
-        scheduleAt(simTime() + 0.1 + uniform(0.01, 0.2), reply);
+        scheduleAt(simTime() + 0.1 + uniform(0.01, 0.2), reply->dup());
         EV << "Reply sent, message ID: " << reply->getSenderAddress() << endl;
+
+        ackArray.push_front(Tuple(reply));
+        reply->setState(currentState::REPEATING);
+        scheduleAt(simTime() + 5 + uniform(0.01, 0.2), reply);
 
         // Add your id to the path list and broadcast it again
         path = wsm->getPathList();
@@ -639,7 +573,7 @@ void RsuHandler::handleCentralityRequest(Message* wsm)
     }
 }
 
-void RsuHandler::handleCentralityReply(Message* wsm)
+void RsuHandler::handleCentralityReply(Message * wsm, std::list<Tuple> & array)
 {
     std::list<long> path = wsm->getPathList();
 
@@ -647,10 +581,9 @@ void RsuHandler::handleCentralityReply(Message* wsm)
     if (path.empty())
     {
         EV << "Answer to my request received, node " << myId << endl;
-        std::list<Tuple>::iterator i;
         bool insert = true;
 
-        for (i = distanceList.begin(); i != distanceList.end(); i++)
+        for (auto i = array.begin(); i != array.end(); i++)
         {
             if (i->id == wsm->getSenderAddress())
             {
@@ -667,12 +600,19 @@ void RsuHandler::handleCentralityReply(Message* wsm)
         }
 
         if (insert)
-            distanceList.push_front(Tuple(wsm));
+            array.push_front(Tuple(wsm));
 
-
-        for (i = distanceList.begin(); i != distanceList.end(); i++)
+        for (auto i = array.begin(); i != array.end(); i++)
             EV << "Node with ID " << i->id << " and distance " << i->hops << endl;
 
+        Message * ack = new Message();
+        populateWSM(ack);
+
+        ack->setAckData(wsm->getCreationTime());
+        ack->setMaxHops(wsm->getMaxHops());
+        ack->setType(messageType::ACKNOWLEDGEMENT);
+
+        scheduleAt(simTime() + 0.1 + uniform(0.01, 0.2), ack);
     }
 
     else
@@ -688,38 +628,47 @@ void RsuHandler::handleCentralityReply(Message* wsm)
     }
 }
 
-// ---------------------------------------------------------------------- //
+// ---------------- RSU REPLY ---------------- //
 
-void RsuHandler::handleRsuReply(Message* wsm)
+void RsuHandler::handleRsuReply(Message* wsm, std::list<Tuple> & ackArray)
 {
-    centralityType centrality = wsm->getCentrality();
+    selectedCentrality centrality = wsm->getCentrality();
 
     switch (centrality)
     {
-        case (centralityType::NONE):
+        case (selectedCentrality::NONE):
             break;
-        case (centralityType::DEGREE):
+        case (selectedCentrality::DEGREE):
             degreeReply(wsm);
             break;
-        case (centralityType::CLOSENESS):
-            closenessReply(wsm);
+        case (selectedCentrality::CLOSENESS):
+            closenessReply(wsm, distanceList);
             break;
-        case (centralityType::BETWEENNESS):
+        case (selectedCentrality::BETWEENNESS):
             betweennessReply(wsm);
             break;
     }
 }
 
-// Functions for handling replies to centrality requests
 void RsuHandler::degreeReply(Message* wsm)
 {
     if (wsm->getTarget() == myId)
+    {
         degree++;
+
+        Message * ack = new Message();
+        populateWSM(ack);
+
+        ack->setAckData(wsm->getCreationTime());
+        ack->setMaxHops(wsm->getMaxHops());
+        ack->setType(messageType::ACKNOWLEDGEMENT);
+
+        scheduleAt(simTime() + 0.1 + uniform(0.01, 0.2), ack);
+    }
 
     else 
     {
         EV << "Forwarding RSU reply...\n";
-
         // Forward the message until it reaches the RSU
         wsm->setSenderPosition(curPosition);
 
@@ -727,16 +676,15 @@ void RsuHandler::degreeReply(Message* wsm)
     }
 }
 
-void RsuHandler::closenessReply(Message* wsm)
+void RsuHandler::closenessReply(Message* wsm, std::list<Tuple> & array)
 {
     if (wsm->getTarget() == myId)
     {
         EV << "Answer to my request received, node " << myId << endl;
         
-        std::list<Tuple>::iterator i;
         bool insert = true;
 
-        for (i = distanceList.begin(); i != distanceList.end(); i++)
+        for (auto i = array.begin(); i != array.end(); i++)
         {
             if (i->id == wsm->getSenderAddress())
             {
@@ -750,19 +698,27 @@ void RsuHandler::closenessReply(Message* wsm)
         }
 
         if (insert)
-            distanceList.push_front(Tuple(wsm));
+            array.push_front(Tuple(wsm));
 
 
-        for (i = distanceList.begin(); i != distanceList.end(); i++)
+        for (auto i = array.begin(); i != array.end(); i++)
             EV << "Node with ID " << i->id << " and distance " << i->hops << endl;
+
+        Message * ack = new Message();
+        populateWSM(ack);
+
+        ack->setAckData(wsm->getCreationTime());
+        ack->setMaxHops(wsm->getMaxHops());
+        ack->setType(messageType::ACKNOWLEDGEMENT);
+
+        scheduleAt(simTime() + 0.1 + uniform(0.01, 0.2), ack);
     }
 
     else
     {
         std::list<long> path =  wsm->getPathList();
-        std::list<long>::iterator i;
 
-        for (i = path.begin(); i != path.end(); i++)
+        for (auto i = path.begin(); i != path.end(); i++)
             EV << "Node in path with id: " << *i << endl;
 
         wsm->setSenderPosition(curPosition);
@@ -772,7 +728,6 @@ void RsuHandler::closenessReply(Message* wsm)
 
         wsm->setPathList(path);  
 
-        // TODO: Check the dup method
         scheduleAt(simTime() + 0.1 + uniform(0.01, 0.2), wsm->dup());
     }
 }
@@ -780,7 +735,18 @@ void RsuHandler::closenessReply(Message* wsm)
 void RsuHandler::betweennessReply(Message* wsm)
 {
     if (wsm->getTarget() == myId)
+    {
         betweenness += wsm->getCentralityData();
+
+        Message * ack = new Message();
+        populateWSM(ack);
+
+        ack->setAckData(wsm->getCreationTime());
+        ack->setMaxHops(wsm->getMaxHops());
+        ack->setType(messageType::ACKNOWLEDGEMENT);
+
+        scheduleAt(simTime() + 0.1 + uniform(0.01, 0.2), ack);
+    }
 
     else
     {
@@ -793,15 +759,221 @@ void RsuHandler::betweennessReply(Message* wsm)
     }
 }
 
-// ---------------------------------------------------------------------- //
+// ------------- ACKNOWLEDGEMENT ------------- //
 
-void RsuHandler::mergeSort(std::list<Tuple>& array)
+void RsuHandler::handleAcknowledgement(Message * wsm, std::list<Tuple> & ackArray)
+{
+    for (auto i = ackArray.begin(); i != ackArray.end(); i++)
+    {
+        if ((i->target == wsm->getSenderAddress()) && (i->timestamp == wsm->getAckData()))
+        {
+            ackArray.erase(i);
+            break;
+        }
+    }
+}
+
+// ------------- PATH FUNCTIONS -------------- //
+
+bool RsuHandler::inPath(std::list<long> path)
+{
+    for (auto i = path.begin(); i != path.end(); i++)
+    {
+        if (*i == myId)
+            return true;
+    }
+
+    return false;
+}
+
+// ------------ MESSAGE INSERTION ------------ //
+
+bool RsuHandler::receiveMessage(Message * msg, std::list<Tuple> & msgArray, std::list<Tuple> & cndArray)
+{
+    // If it's for testing purposes, follow this algorithm
+    if (msg->getState() == currentState::TESTING)
+    {
+        EV << "Inserting test messages...\n";
+
+        Message * dummy = new Message();
+        populateWSM(dummy);
+        
+        Tuple test = Tuple(dummy);
+
+        for (int i = 0; i < 10; i++)
+        {
+            flushList(msgArray, cndArray);
+
+            test.usedFrequency = 1 + i;
+            test.lastUsed = 100 - i * 10;
+            test.received = 90 - i * 10;
+            test.timestamp = (i + 1) * 3;
+
+            msgArray.push_front(test);
+            EV << "Message List: \n";
+            for (auto i = msgArray.begin(); i != msgArray.end(); i++)
+            {
+                EV << "Used frequency " << i->usedFrequency;
+                EV << " and Last Time Used " << i->lastUsed;
+                EV << " and Generated at " << i->timestamp << endl;
+            }
+        }
+
+        return true;
+    }
+
+    // TODO: EXPERIMENTAL
+    if (msg->getSenderAddress() == myId)
+        return false;
+
+    flushList(msgArray, cndArray);
+    return insertMessage(msg, msgArray, cndArray);
+}
+
+void RsuHandler::flushList(std::list<Tuple> & msgArray, std::list<Tuple> & cndArray)
+{    
+    // If cache flushing needs to be done
+    if (msgArray.size() + cndArray.size() >= capacity)
+    {
+        EV << "Executing Flushing Algorithm...\n";
+
+        if (cndArray.empty())
+        {
+            if (msgArray.size() < flushed)
+                msgArray.clear();
+
+            else
+            {
+                mergeSort(msgArray);
+                
+                auto end = msgArray.end();
+                auto start = end;
+
+                for (int i = 0; i < flushed; i++)
+                    start--;
+                
+                msgArray.erase(start, end);
+
+                mergeSort(msgArray, true);
+            }
+        }
+
+        else
+        {
+            if (cndArray.size() < flushed)
+                cndArray.clear();
+
+            else
+            {
+                mergeSort(cndArray);
+
+                auto end = cndArray.end();
+                auto start = end;
+
+                for (int i = 0; i < flushed; i--)
+                    start--;
+
+                cndArray.erase(start, end);
+            }
+        }
+    }
+}
+
+bool RsuHandler::insertMessage(Message * msg, std::list<Tuple> & msgArray, std::list<Tuple> & cndArray)
+{
+    EV << "Executing Insertion Algorithm...\n";
+
+    if (!msgArray.empty())
+    {
+        simtime_t timestamp = msg->getCreationTime();
+
+        for (auto i = msgArray.begin(); i != msgArray.end(); i++)
+        {
+            // Insert message in the correct position
+            if (i->timestamp > timestamp)
+                continue;
+            
+            else if (i->timestamp == timestamp)
+            {
+                if (i->id == msg->getSenderAddress())
+                    return false;
+            }
+
+            else if (i->timestamp < timestamp)
+            {
+                msgArray.insert(i, Tuple(msg));
+                return true;
+            }
+        }
+    }
+
+    if (!cndArray.empty())
+    {
+        simtime_t timestamp = msg->getCreationTime();
+
+        for (auto i = cndArray.begin(); i != cndArray.end(); i++)
+        {
+            if (i->timestamp == timestamp)
+            {
+                if (i->id == msg->getSenderAddress())
+                    return false;
+            }
+        }
+    }
+
+    msgArray.push_front(Tuple(msg));
+    return true;
+}
+
+// ---------------- THRESHOLD ---------------- //
+
+void RsuHandler::thresholdRequest()
+{
+    Message * request = new Message();
+    populateWSM(request);
+
+    request->setState(currentState::CACHING);
+    
+    scheduleAt(simTime() + 15, request);
+}
+
+void RsuHandler::thresholdControl(simtime_t time, std::list<Tuple> & msgArray, std::list<Tuple> & cndArray)
+{
+    simtime_t currentTime = simTime();
+
+    EV << "Threshold control being performed...\n";
+
+    for (auto i = --msgArray.end(); i != --msgArray.begin(); i--)
+    {
+        if (currentTime - i->timestamp > time)
+        {
+            cndArray.push_front(*i);
+            msgArray.erase(i);
+        }
+
+        else 
+            break;
+    }
+
+    EV << "At time: " << currentTime << " Size of messageList: " << msgArray.size() << endl;
+    for (auto i = msgArray.begin(); i != msgArray.end(); i++)
+        EV << i->timestamp << endl;
+    EV << "And size of candidateList: " << cndArray.size() << endl; 
+    for (auto i = cndArray.begin(); i != cndArray.end(); i++)
+        EV << i->timestamp << endl;
+
+    thresholdRequest();
+}
+
+// ------------ SORTING FUNCTIONS ------------ //
+
+void RsuHandler::mergeSort(std::list<Tuple> & array, bool restore)
 {
     int midpoint = array.size() / 2;
     if (array.size() == 1)
         return;
-        
-    std::list<Tuple>::iterator i = array.begin();
+
+    auto i = array.begin();
 
     std::list<Tuple> left;
     while (left.size() < midpoint)
@@ -817,21 +989,140 @@ void RsuHandler::mergeSort(std::list<Tuple>& array)
         i++;
     }
     
-    mergeSort(left);
-    mergeSort(right);
+    if (restore)
+    {
+        mergeSort(left, true);
+        mergeSort(right, true);
+        mergeRestore(array, left, right);
+    }
 
-    if (policy == cachingPolicy::LRU)
-        mergeLRU(array, left, right);
-    else if (policy == cachingPolicy::LFU)
-        mergeLFU(array, left, right);
+    else
+    {
+        mergeSort(left);
+        mergeSort(right);
+        switch (policy)
+        {
+            case cachingPolicy::FIFO:
+                mergeFIFO(array, left, right);
+                break;
+            case cachingPolicy::LRU:
+                mergeLRU(array, left, right);
+                break;
+            case cachingPolicy::LFU:
+                mergeLFU(array, left, right);
+                break;
+            default:
+                break;
+        } 
+    }
 }
 
-void RsuHandler::mergeLRU(std::list<Tuple> &array, std::list<Tuple> left, std::list<Tuple> right)
+void RsuHandler::mergeRestore(std::list<Tuple> & array, std::list<Tuple> left, std::list<Tuple> right)
 {
-    std::list<Tuple>::iterator i = left.begin();
-    std::list<Tuple>::iterator j = right.begin();
-    std::list<Tuple>::iterator k = array.begin();
+    auto i = left.begin();
+    auto j = right.begin();
+    auto k = array.begin();
+
+    while (i != left.end() && j != right.end())
+    {
+        if (i->timestamp > j->timestamp)
+        {
+            *k = *i;
+            i++;
+            k++;
+        }
+        
+        else if (j->timestamp > i->timestamp)
+        {            
+            *k = *j;
+            j++;
+            k++;
+        }
+
+        else if (i->timestamp == j->timestamp)
+        {
+            *k = *i;
+            i++;
+            k++; 
+        }
+    }
+
+    while (i != left.end())
+    {
+        *k = *i;
+        i++;
+        k++;
+    }
     
+    while (j != right.end())
+    {
+        *k = *j;
+        j++;
+        k++;
+    }
+}
+
+void RsuHandler::mergeFIFO(std::list<Tuple> & array, std::list<Tuple> left, std::list<Tuple> right)
+{
+    auto i = left.begin();
+    auto j = right.begin();
+    auto k = array.begin();
+
+    while (i != left.end() && j != right.end())
+    {
+        if (i->received > j->received)
+        {
+            *k = *i;
+            i++;
+            k++;
+        }
+        
+        else if (j->received > i->received)
+        {            
+            *k = *j;
+            j++;
+            k++;
+        }
+
+        else if (i->received == j->received)
+        {
+            if (i->timestamp > j->timestamp)
+            {
+                *k = *i;
+                i++;
+                k++;  
+            }
+
+            else 
+            {
+                *k = *j;
+                j++;
+                k++;
+            }
+        }
+    }
+    
+    while (i != left.end())
+    {
+        *k = *i;
+        i++;
+        k++;
+    }
+    
+    while (j != right.end())
+    {
+        *k = *j;
+        j++;
+        k++;
+    }
+}
+
+void RsuHandler::mergeLRU(std::list<Tuple> & array, std::list<Tuple> left, std::list<Tuple> right)
+{
+    auto i = left.begin();
+    auto j = right.begin();
+    auto k = array.begin();
+
     while (i != left.end() && j != right.end())
     {
         if (i->lastUsed > j->lastUsed)
@@ -881,12 +1172,12 @@ void RsuHandler::mergeLRU(std::list<Tuple> &array, std::list<Tuple> left, std::l
     }
 }
 
-void RsuHandler::mergeLFU(std::list<Tuple> &array, std::list<Tuple> left, std::list<Tuple> right)
+void RsuHandler::mergeLFU(std::list<Tuple> & array, std::list<Tuple> left, std::list<Tuple> right)
 {
-    std::list<Tuple>::iterator i = left.begin();
-    std::list<Tuple>::iterator j = right.begin();
-    std::list<Tuple>::iterator k = array.begin();
-    
+    auto i = left.begin();
+    auto j = right.begin();
+    auto k = array.begin();
+
     while (i != left.end() && j != right.end())
     {
         if (i->usedFrequency > j->usedFrequency)
@@ -935,50 +1226,4 @@ void RsuHandler::mergeLFU(std::list<Tuple> &array, std::list<Tuple> left, std::l
         k++;
     }
 }
-
-bool RsuHandler::acceptMessage(Message* wsm)
-{
-    EV << "RSU with ID " << myId << " received message from " << wsm->getSenderAddress() << endl;
-
-    if (!messageList.empty())
-    {
-        std::list<Tuple>::iterator i;
-        for (i = messageList.begin(); i != messageList.end(); i++)
-        {
-            // Depending on the timestamp of the message, put it in the correct position
-            if (i->timestamp > wsm->getCreationTime())
-                continue;
-
-            if (i->timestamp == wsm->getCreationTime())
-                if (i->id == wsm->getSenderAddress())
-                    return false;
-
-            if (i->timestamp < wsm->getCreationTime())
-            {
-                messageList.insert(i--, Tuple(wsm));
-                return true;
-            }
-        }
-    }
-
-    messageList.push_front(Tuple(wsm));
-    return true;
-}
-
-bool RsuHandler::inPath(std::list<long> path)
-{
-    EV << "I'm here, RSU with ID " << myId << endl;
-
-    std::list<long>::iterator i;
-
-    for (i = path.begin(); i != path.end(); i++)
-    {
-        if (*i == myId)
-            return true;
-    }
-
-    return false;
-}
-
-// ---------------------------------------------------------------------- //
 
