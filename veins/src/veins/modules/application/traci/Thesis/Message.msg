@@ -4,82 +4,72 @@ import veins.base.utils.SimpleAddress;
 
 cplusplus 
 {{
-    #include <list>
-
-    typedef std::list<long> List;
+    #include <vector>
+    typedef std::vector<long> Vector;
 }};
 
-class List { @existingClass; };
+class Vector { @existingClass; };
 
-namespace veins;
-
-enum messageType
+enum MessageType 
 {
-    BROADCAST = 0;
-    REQUEST = 1;
-    REPLY = 2;
-    RSU_REQUEST = 3;
-    CENTRALITY_REQUEST = 4;
-    CENTRALITY_REPLY = 5;
-    RSU_REPLY = 6;
-    ACKNOWLEDGEMENT = 7;
+    HELLO = 0;
+    BROADCAST = 1;
+    REQUEST = 2;
+    REPLY = 3;
+    ROUTE_REQ = 4;
+    ROUTE_REPLY = 5;
+    CENTRALITY_REQ = 6;
+    CENTRALITY_REPLY = 7;
+    ACKNOWLEDGEMENT = 8;
 }
 
-enum currentState
+enum CurrentState
 {
-
     INITIALIZING = 0;
     SENDING = 1;
-    COLLECTING = 2;
-    CACHING = 3;
-    TESTING = 4;
-    REPEATING = 5;
+    REQUESTING = 2;
+    REPEATING = 3;
+    COLLECTING = 4;
+    CACHING = 5;
 }
 
-enum cachingPolicy
-{
-    FIFO = 0;
-    LRU = 1;
-    LFU = 2;
-}
-
-enum scenario
-{
-    CENTRALITY = 0;
-    CACHE = 1;
-}
-
-enum selectedCentrality
+enum CentralityType 
 {
     DEGREE = 0;
     CLOSENESS = 1;
     BETWEENNESS = 2;
-    NONE = 3;
 }
+
+namespace veins;
 
 packet Message extends BaseFrame1609_4
 {
-    LAddress::L2Type senderAddress = -1;
+    long msgId;                 // Message Id
 
+    // Sender variables
+    LAddress::L2Type senderAddress = -1;
+    Coord senderPosition;
+
+    // Message route variables
     LAddress::L2Type source;
-    LAddress::L2Type target;
+    LAddress::L2Type dest;
 
     // Message properties
-    int testFlag = 0;
-    int maxHops = 1;
-    int hops = 0;
+    int ttl = 1;                // Time to live, default value 1
+    int hops = 0;               // Hops, initialized at 0
 
     // Message specifications
-    messageType type = messageType::BROADCAST;
-    currentState state = currentState::SENDING;  
-    selectedCentrality centrality = selectedCentrality::NONE;
+    MessageType type = MessageType::BROADCAST;
+    CurrentState state = CurrentState::SENDING;
+    CentralityType centrality;
+
 
     // Message data
-    string roadData = "";                                
-    int centralityData;
-    simtime_t ackData;
+    string roadData;            // Information about road
+    int msgInfo;                // Misc message info
 
-    List rsuList;                                           // Variable to determine if message has passed from an RSU, might be pointless
-    List pathList;                                          // List used for centrality calculations
-    Coord senderPosition;                                   // Variable used for distance calculations
+    // Route variables
+    Vector route;               // Route taken
+    Vector rsuRoute;            // Rsus in the route, used for betweenness
+    Vector previousNodes;       // Used for acknowledgements
 }

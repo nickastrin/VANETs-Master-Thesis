@@ -40,164 +40,136 @@ class Message;
 #include "veins/base/utils/SimpleAddress_m.h" // import veins.base.utils.SimpleAddress
 
 // cplusplus {{
-    #include <list>
-
-    typedef std::list<long> List;
+    #include <vector>
+    typedef std::vector<long> Vector;
 // }}
+
+/**
+ * Enum generated from <tt>veins/modules/application/traci/Thesis/Message.msg:14</tt> by nedtool.
+ * <pre>
+ * enum MessageType
+ * {
+ *     HELLO = 0;
+ *     BROADCAST = 1;
+ *     REQUEST = 2;
+ *     REPLY = 3;
+ *     ROUTE_REQ = 4;
+ *     ROUTE_REPLY = 5;
+ *     CENTRALITY_REQ = 6;
+ *     CENTRALITY_REPLY = 7;
+ *     ACKNOWLEDGEMENT = 8;
+ * }
+ * </pre>
+ */
+enum MessageType {
+    HELLO = 0,
+    BROADCAST = 1,
+    REQUEST = 2,
+    REPLY = 3,
+    ROUTE_REQ = 4,
+    ROUTE_REPLY = 5,
+    CENTRALITY_REQ = 6,
+    CENTRALITY_REPLY = 7,
+    ACKNOWLEDGEMENT = 8
+};
+
+/**
+ * Enum generated from <tt>veins/modules/application/traci/Thesis/Message.msg:27</tt> by nedtool.
+ * <pre>
+ * enum CurrentState
+ * {
+ *     INITIALIZING = 0;
+ *     SENDING = 1;
+ *     REQUESTING = 2;
+ *     REPEATING = 3;
+ *     COLLECTING = 4;
+ *     CACHING = 5;
+ * }
+ * </pre>
+ */
+enum CurrentState {
+    INITIALIZING = 0,
+    SENDING = 1,
+    REQUESTING = 2,
+    REPEATING = 3,
+    COLLECTING = 4,
+    CACHING = 5
+};
+
+/**
+ * Enum generated from <tt>veins/modules/application/traci/Thesis/Message.msg:37</tt> by nedtool.
+ * <pre>
+ * enum CentralityType
+ * {
+ *     DEGREE = 0;
+ *     CLOSENESS = 1;
+ *     BETWEENNESS = 2;
+ * }
+ * </pre>
+ */
+enum CentralityType {
+    DEGREE = 0,
+    CLOSENESS = 1,
+    BETWEENNESS = 2
+};
 
 
 namespace veins {
 
 /**
- * Enum generated from <tt>veins/modules/application/traci/Thesis/Message.msg:17</tt> by nedtool.
- * <pre>
- * enum messageType
- * {
- *     BROADCAST = 0;
- *     REQUEST = 1;
- *     REPLY = 2;
- *     RSU_REQUEST = 3;
- *     CENTRALITY_REQUEST = 4;
- *     CENTRALITY_REPLY = 5;
- *     RSU_REPLY = 6;
- *     ACKNOWLEDGEMENT = 7;
- * }
- * </pre>
- */
-enum messageType {
-    BROADCAST = 0,
-    REQUEST = 1,
-    REPLY = 2,
-    RSU_REQUEST = 3,
-    CENTRALITY_REQUEST = 4,
-    CENTRALITY_REPLY = 5,
-    RSU_REPLY = 6,
-    ACKNOWLEDGEMENT = 7
-};
-
-/**
- * Enum generated from <tt>veins/modules/application/traci/Thesis/Message.msg:29</tt> by nedtool.
- * <pre>
- * enum currentState
- * {
- *     INITIALIZING = 0;
- *     SENDING = 1;
- *     COLLECTING = 2;
- *     CACHING = 3;
- *     TESTING = 4;
- *     REPEATING = 5;
- * }
- * </pre>
- */
-enum currentState {
-    INITIALIZING = 0,
-    SENDING = 1,
-    COLLECTING = 2,
-    CACHING = 3,
-    TESTING = 4,
-    REPEATING = 5
-};
-
-/**
- * Enum generated from <tt>veins/modules/application/traci/Thesis/Message.msg:40</tt> by nedtool.
- * <pre>
- * enum cachingPolicy
- * {
- *     FIFO = 0;
- *     LRU = 1;
- *     LFU = 2;
- * }
- * </pre>
- */
-enum cachingPolicy {
-    FIFO = 0,
-    LRU = 1,
-    LFU = 2
-};
-
-/**
- * Enum generated from <tt>veins/modules/application/traci/Thesis/Message.msg:47</tt> by nedtool.
- * <pre>
- * enum scenario
- * {
- *     CENTRALITY = 0;
- *     CACHE = 1;
- * }
- * </pre>
- */
-enum scenario {
-    CENTRALITY = 0,
-    CACHE = 1
-};
-
-/**
- * Enum generated from <tt>veins/modules/application/traci/Thesis/Message.msg:53</tt> by nedtool.
- * <pre>
- * enum selectedCentrality
- * {
- *     DEGREE = 0;
- *     CLOSENESS = 1;
- *     BETWEENNESS = 2;
- *     NONE = 3;
- * }
- * </pre>
- */
-enum selectedCentrality {
-    DEGREE = 0,
-    CLOSENESS = 1,
-    BETWEENNESS = 2,
-    NONE = 3
-};
-
-/**
- * Class generated from <tt>veins/modules/application/traci/Thesis/Message.msg:61</tt> by nedtool.
+ * Class generated from <tt>veins/modules/application/traci/Thesis/Message.msg:46</tt> by nedtool.
  * <pre>
  * packet Message extends BaseFrame1609_4
  * {
- *     LAddress::L2Type senderAddress = -1;
+ *     long msgId;                 // Message Id
  * 
+ *     // Sender variables
+ *     LAddress::L2Type senderAddress = -1;
+ *     Coord senderPosition;
+ * 
+ *     // Message route variables
  *     LAddress::L2Type source;
- *     LAddress::L2Type target;
+ *     LAddress::L2Type dest;
  * 
  *     // Message properties
- *     int testFlag = 0;
- *     int maxHops = 1;
- *     int hops = 0;
+ *     int ttl = 1;                // Time to live, default value 1
+ *     int hops = 0;               // Hops, initialized at 0
  * 
  *     // Message specifications
- *     messageType type = messageType::BROADCAST;
- *     currentState state = currentState::SENDING;
- *     selectedCentrality centrality = selectedCentrality::NONE;
+ *     MessageType type = MessageType::BROADCAST;
+ *     CurrentState state = CurrentState::SENDING;
+ *     CentralityType centrality;
+ * 
  * 
  *     // Message data
- *     string roadData = "";
- *     int centralityData;
- *     simtime_t ackData;
+ *     string roadData;            // Information about road
+ *     int msgInfo;                // Misc message info
  * 
- *     List rsuList;                                           // Variable to determine if message has passed from an RSU, might be pointless
- *     List pathList;                                          // List used for centrality calculations
- *     Coord senderPosition;                                   // Variable used for distance calculations
+ *     // Route variables
+ *     Vector route;               // Route taken
+ *     Vector rsuRoute;            // Rsus in the route, used for betweenness
+ *     Vector previousNodes;       // Used for acknowledgements
  * }
  * </pre>
  */
 class VEINS_API Message : public ::veins::BaseFrame1609_4
 {
   protected:
+    long msgId = 0;
     LAddress::L2Type senderAddress = -1;
-    LAddress::L2Type source;
-    LAddress::L2Type target;
-    int testFlag = 0;
-    int maxHops = 1;
-    int hops = 0;
-    veins::messageType type = messageType::BROADCAST;
-    veins::currentState state = currentState::SENDING;
-    veins::selectedCentrality centrality = selectedCentrality::NONE;
-    omnetpp::opp_string roadData = "";
-    int centralityData = 0;
-    omnetpp::simtime_t ackData = SIMTIME_ZERO;
-    List rsuList;
-    List pathList;
     Coord senderPosition;
+    LAddress::L2Type source;
+    LAddress::L2Type dest;
+    int ttl = 1;
+    int hops = 0;
+    MessageType type = MessageType::BROADCAST;
+    CurrentState state = CurrentState::SENDING;
+    CentralityType centrality = static_cast<CentralityType>(-1);
+    omnetpp::opp_string roadData;
+    int msgInfo = 0;
+    Vector route;
+    Vector rsuRoute;
+    Vector previousNodes;
 
   private:
     void copy(const Message& other);
@@ -216,42 +188,43 @@ class VEINS_API Message : public ::veins::BaseFrame1609_4
     virtual void parsimUnpack(omnetpp::cCommBuffer *b) override;
 
     // field getter/setter methods
+    virtual long getMsgId() const;
+    virtual void setMsgId(long msgId);
     virtual const LAddress::L2Type& getSenderAddress() const;
     virtual LAddress::L2Type& getSenderAddressForUpdate() { return const_cast<LAddress::L2Type&>(const_cast<Message*>(this)->getSenderAddress());}
     virtual void setSenderAddress(const LAddress::L2Type& senderAddress);
-    virtual const LAddress::L2Type& getSource() const;
-    virtual LAddress::L2Type& getSourceForUpdate() { return const_cast<LAddress::L2Type&>(const_cast<Message*>(this)->getSource());}
-    virtual void setSource(const LAddress::L2Type& source);
-    virtual const LAddress::L2Type& getTarget() const;
-    virtual LAddress::L2Type& getTargetForUpdate() { return const_cast<LAddress::L2Type&>(const_cast<Message*>(this)->getTarget());}
-    virtual void setTarget(const LAddress::L2Type& target);
-    virtual int getTestFlag() const;
-    virtual void setTestFlag(int testFlag);
-    virtual int getMaxHops() const;
-    virtual void setMaxHops(int maxHops);
-    virtual int getHops() const;
-    virtual void setHops(int hops);
-    virtual veins::messageType getType() const;
-    virtual void setType(veins::messageType type);
-    virtual veins::currentState getState() const;
-    virtual void setState(veins::currentState state);
-    virtual veins::selectedCentrality getCentrality() const;
-    virtual void setCentrality(veins::selectedCentrality centrality);
-    virtual const char * getRoadData() const;
-    virtual void setRoadData(const char * roadData);
-    virtual int getCentralityData() const;
-    virtual void setCentralityData(int centralityData);
-    virtual omnetpp::simtime_t getAckData() const;
-    virtual void setAckData(omnetpp::simtime_t ackData);
-    virtual const List& getRsuList() const;
-    virtual List& getRsuListForUpdate() { return const_cast<List&>(const_cast<Message*>(this)->getRsuList());}
-    virtual void setRsuList(const List& rsuList);
-    virtual const List& getPathList() const;
-    virtual List& getPathListForUpdate() { return const_cast<List&>(const_cast<Message*>(this)->getPathList());}
-    virtual void setPathList(const List& pathList);
     virtual const Coord& getSenderPosition() const;
     virtual Coord& getSenderPositionForUpdate() { return const_cast<Coord&>(const_cast<Message*>(this)->getSenderPosition());}
     virtual void setSenderPosition(const Coord& senderPosition);
+    virtual const LAddress::L2Type& getSource() const;
+    virtual LAddress::L2Type& getSourceForUpdate() { return const_cast<LAddress::L2Type&>(const_cast<Message*>(this)->getSource());}
+    virtual void setSource(const LAddress::L2Type& source);
+    virtual const LAddress::L2Type& getDest() const;
+    virtual LAddress::L2Type& getDestForUpdate() { return const_cast<LAddress::L2Type&>(const_cast<Message*>(this)->getDest());}
+    virtual void setDest(const LAddress::L2Type& dest);
+    virtual int getTtl() const;
+    virtual void setTtl(int ttl);
+    virtual int getHops() const;
+    virtual void setHops(int hops);
+    virtual MessageType getType() const;
+    virtual void setType(MessageType type);
+    virtual CurrentState getState() const;
+    virtual void setState(CurrentState state);
+    virtual CentralityType getCentrality() const;
+    virtual void setCentrality(CentralityType centrality);
+    virtual const char * getRoadData() const;
+    virtual void setRoadData(const char * roadData);
+    virtual int getMsgInfo() const;
+    virtual void setMsgInfo(int msgInfo);
+    virtual const Vector& getRoute() const;
+    virtual Vector& getRouteForUpdate() { return const_cast<Vector&>(const_cast<Message*>(this)->getRoute());}
+    virtual void setRoute(const Vector& route);
+    virtual const Vector& getRsuRoute() const;
+    virtual Vector& getRsuRouteForUpdate() { return const_cast<Vector&>(const_cast<Message*>(this)->getRsuRoute());}
+    virtual void setRsuRoute(const Vector& rsuRoute);
+    virtual const Vector& getPreviousNodes() const;
+    virtual Vector& getPreviousNodesForUpdate() { return const_cast<Vector&>(const_cast<Message*>(this)->getPreviousNodes());}
+    virtual void setPreviousNodes(const Vector& previousNodes);
 };
 
 inline void doParsimPacking(omnetpp::cCommBuffer *b, const Message& obj) {obj.parsimPack(b);}

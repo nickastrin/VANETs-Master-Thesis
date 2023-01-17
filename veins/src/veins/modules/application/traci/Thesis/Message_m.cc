@@ -173,15 +173,15 @@ toVoidPtr(T* t)
 
 }
 
-class ListDescriptor : public omnetpp::cClassDescriptor
+class VectorDescriptor : public omnetpp::cClassDescriptor
 {
   private:
     mutable const char **propertynames;
     enum FieldConstants {
     };
   public:
-    ListDescriptor();
-    virtual ~ListDescriptor();
+    VectorDescriptor();
+    virtual ~VectorDescriptor();
 
     virtual bool doesSupport(omnetpp::cObject *obj) const override;
     virtual const char **getPropertyNames() const override;
@@ -203,24 +203,24 @@ class ListDescriptor : public omnetpp::cClassDescriptor
     virtual void *getFieldStructValuePointer(void *object, int field, int i) const override;
 };
 
-Register_ClassDescriptor(ListDescriptor)
+Register_ClassDescriptor(VectorDescriptor)
 
-ListDescriptor::ListDescriptor() : omnetpp::cClassDescriptor(omnetpp::opp_typename(typeid(List)), "")
+VectorDescriptor::VectorDescriptor() : omnetpp::cClassDescriptor(omnetpp::opp_typename(typeid(Vector)), "")
 {
     propertynames = nullptr;
 }
 
-ListDescriptor::~ListDescriptor()
+VectorDescriptor::~VectorDescriptor()
 {
     delete[] propertynames;
 }
 
-bool ListDescriptor::doesSupport(omnetpp::cObject *obj) const
+bool VectorDescriptor::doesSupport(omnetpp::cObject *obj) const
 {
-    return dynamic_cast<List *>(obj)!=nullptr;
+    return dynamic_cast<Vector *>(obj)!=nullptr;
 }
 
-const char **ListDescriptor::getPropertyNames() const
+const char **VectorDescriptor::getPropertyNames() const
 {
     if (!propertynames) {
         static const char *names[] = { "existingClass",  nullptr };
@@ -231,20 +231,20 @@ const char **ListDescriptor::getPropertyNames() const
     return propertynames;
 }
 
-const char *ListDescriptor::getProperty(const char *propertyname) const
+const char *VectorDescriptor::getProperty(const char *propertyname) const
 {
     if (!strcmp(propertyname, "existingClass")) return "";
     omnetpp::cClassDescriptor *basedesc = getBaseClassDescriptor();
     return basedesc ? basedesc->getProperty(propertyname) : nullptr;
 }
 
-int ListDescriptor::getFieldCount() const
+int VectorDescriptor::getFieldCount() const
 {
     omnetpp::cClassDescriptor *basedesc = getBaseClassDescriptor();
     return basedesc ? 0+basedesc->getFieldCount() : 0;
 }
 
-unsigned int ListDescriptor::getFieldTypeFlags(int field) const
+unsigned int VectorDescriptor::getFieldTypeFlags(int field) const
 {
     omnetpp::cClassDescriptor *basedesc = getBaseClassDescriptor();
     if (basedesc) {
@@ -255,7 +255,7 @@ unsigned int ListDescriptor::getFieldTypeFlags(int field) const
     return 0;
 }
 
-const char *ListDescriptor::getFieldName(int field) const
+const char *VectorDescriptor::getFieldName(int field) const
 {
     omnetpp::cClassDescriptor *basedesc = getBaseClassDescriptor();
     if (basedesc) {
@@ -266,13 +266,13 @@ const char *ListDescriptor::getFieldName(int field) const
     return nullptr;
 }
 
-int ListDescriptor::findField(const char *fieldName) const
+int VectorDescriptor::findField(const char *fieldName) const
 {
     omnetpp::cClassDescriptor *basedesc = getBaseClassDescriptor();
     return basedesc ? basedesc->findField(fieldName) : -1;
 }
 
-const char *ListDescriptor::getFieldTypeString(int field) const
+const char *VectorDescriptor::getFieldTypeString(int field) const
 {
     omnetpp::cClassDescriptor *basedesc = getBaseClassDescriptor();
     if (basedesc) {
@@ -283,7 +283,7 @@ const char *ListDescriptor::getFieldTypeString(int field) const
     return nullptr;
 }
 
-const char **ListDescriptor::getFieldPropertyNames(int field) const
+const char **VectorDescriptor::getFieldPropertyNames(int field) const
 {
     omnetpp::cClassDescriptor *basedesc = getBaseClassDescriptor();
     if (basedesc) {
@@ -296,7 +296,7 @@ const char **ListDescriptor::getFieldPropertyNames(int field) const
     }
 }
 
-const char *ListDescriptor::getFieldProperty(int field, const char *propertyname) const
+const char *VectorDescriptor::getFieldProperty(int field, const char *propertyname) const
 {
     omnetpp::cClassDescriptor *basedesc = getBaseClassDescriptor();
     if (basedesc) {
@@ -309,7 +309,7 @@ const char *ListDescriptor::getFieldProperty(int field, const char *propertyname
     }
 }
 
-int ListDescriptor::getFieldArraySize(void *object, int field) const
+int VectorDescriptor::getFieldArraySize(void *object, int field) const
 {
     omnetpp::cClassDescriptor *basedesc = getBaseClassDescriptor();
     if (basedesc) {
@@ -317,13 +317,13 @@ int ListDescriptor::getFieldArraySize(void *object, int field) const
             return basedesc->getFieldArraySize(object, field);
         field -= basedesc->getFieldCount();
     }
-    List *pp = (List *)object; (void)pp;
+    Vector *pp = (Vector *)object; (void)pp;
     switch (field) {
         default: return 0;
     }
 }
 
-const char *ListDescriptor::getFieldDynamicTypeString(void *object, int field, int i) const
+const char *VectorDescriptor::getFieldDynamicTypeString(void *object, int field, int i) const
 {
     omnetpp::cClassDescriptor *basedesc = getBaseClassDescriptor();
     if (basedesc) {
@@ -331,13 +331,13 @@ const char *ListDescriptor::getFieldDynamicTypeString(void *object, int field, i
             return basedesc->getFieldDynamicTypeString(object,field,i);
         field -= basedesc->getFieldCount();
     }
-    List *pp = (List *)object; (void)pp;
+    Vector *pp = (Vector *)object; (void)pp;
     switch (field) {
         default: return nullptr;
     }
 }
 
-std::string ListDescriptor::getFieldValueAsString(void *object, int field, int i) const
+std::string VectorDescriptor::getFieldValueAsString(void *object, int field, int i) const
 {
     omnetpp::cClassDescriptor *basedesc = getBaseClassDescriptor();
     if (basedesc) {
@@ -345,13 +345,13 @@ std::string ListDescriptor::getFieldValueAsString(void *object, int field, int i
             return basedesc->getFieldValueAsString(object,field,i);
         field -= basedesc->getFieldCount();
     }
-    List *pp = (List *)object; (void)pp;
+    Vector *pp = (Vector *)object; (void)pp;
     switch (field) {
         default: return "";
     }
 }
 
-bool ListDescriptor::setFieldValueAsString(void *object, int field, int i, const char *value) const
+bool VectorDescriptor::setFieldValueAsString(void *object, int field, int i, const char *value) const
 {
     omnetpp::cClassDescriptor *basedesc = getBaseClassDescriptor();
     if (basedesc) {
@@ -359,13 +359,13 @@ bool ListDescriptor::setFieldValueAsString(void *object, int field, int i, const
             return basedesc->setFieldValueAsString(object,field,i,value);
         field -= basedesc->getFieldCount();
     }
-    List *pp = (List *)object; (void)pp;
+    Vector *pp = (Vector *)object; (void)pp;
     switch (field) {
         default: return false;
     }
 }
 
-const char *ListDescriptor::getFieldStructName(int field) const
+const char *VectorDescriptor::getFieldStructName(int field) const
 {
     omnetpp::cClassDescriptor *basedesc = getBaseClassDescriptor();
     if (basedesc) {
@@ -376,7 +376,7 @@ const char *ListDescriptor::getFieldStructName(int field) const
     return nullptr;
 }
 
-void *ListDescriptor::getFieldStructValuePointer(void *object, int field, int i) const
+void *VectorDescriptor::getFieldStructValuePointer(void *object, int field, int i) const
 {
     omnetpp::cClassDescriptor *basedesc = getBaseClassDescriptor();
     if (basedesc) {
@@ -384,11 +384,44 @@ void *ListDescriptor::getFieldStructValuePointer(void *object, int field, int i)
             return basedesc->getFieldStructValuePointer(object, field, i);
         field -= basedesc->getFieldCount();
     }
-    List *pp = (List *)object; (void)pp;
+    Vector *pp = (Vector *)object; (void)pp;
     switch (field) {
         default: return nullptr;
     }
 }
+
+EXECUTE_ON_STARTUP(
+    omnetpp::cEnum *e = omnetpp::cEnum::find("MessageType");
+    if (!e) omnetpp::enums.getInstance()->add(e = new omnetpp::cEnum("MessageType"));
+    e->insert(HELLO, "HELLO");
+    e->insert(BROADCAST, "BROADCAST");
+    e->insert(REQUEST, "REQUEST");
+    e->insert(REPLY, "REPLY");
+    e->insert(ROUTE_REQ, "ROUTE_REQ");
+    e->insert(ROUTE_REPLY, "ROUTE_REPLY");
+    e->insert(CENTRALITY_REQ, "CENTRALITY_REQ");
+    e->insert(CENTRALITY_REPLY, "CENTRALITY_REPLY");
+    e->insert(ACKNOWLEDGEMENT, "ACKNOWLEDGEMENT");
+)
+
+EXECUTE_ON_STARTUP(
+    omnetpp::cEnum *e = omnetpp::cEnum::find("CurrentState");
+    if (!e) omnetpp::enums.getInstance()->add(e = new omnetpp::cEnum("CurrentState"));
+    e->insert(INITIALIZING, "INITIALIZING");
+    e->insert(SENDING, "SENDING");
+    e->insert(REQUESTING, "REQUESTING");
+    e->insert(REPEATING, "REPEATING");
+    e->insert(COLLECTING, "COLLECTING");
+    e->insert(CACHING, "CACHING");
+)
+
+EXECUTE_ON_STARTUP(
+    omnetpp::cEnum *e = omnetpp::cEnum::find("CentralityType");
+    if (!e) omnetpp::enums.getInstance()->add(e = new omnetpp::cEnum("CentralityType"));
+    e->insert(DEGREE, "DEGREE");
+    e->insert(CLOSENESS, "CLOSENESS");
+    e->insert(BETWEENNESS, "BETWEENNESS");
+)
 
 namespace veins {
 
@@ -424,54 +457,6 @@ inline std::ostream& operator<<(std::ostream& out, const std::vector<T,A>& vec)
     return out;
 }
 
-EXECUTE_ON_STARTUP(
-    omnetpp::cEnum *e = omnetpp::cEnum::find("veins::messageType");
-    if (!e) omnetpp::enums.getInstance()->add(e = new omnetpp::cEnum("veins::messageType"));
-    e->insert(BROADCAST, "BROADCAST");
-    e->insert(REQUEST, "REQUEST");
-    e->insert(REPLY, "REPLY");
-    e->insert(RSU_REQUEST, "RSU_REQUEST");
-    e->insert(CENTRALITY_REQUEST, "CENTRALITY_REQUEST");
-    e->insert(CENTRALITY_REPLY, "CENTRALITY_REPLY");
-    e->insert(RSU_REPLY, "RSU_REPLY");
-    e->insert(ACKNOWLEDGEMENT, "ACKNOWLEDGEMENT");
-)
-
-EXECUTE_ON_STARTUP(
-    omnetpp::cEnum *e = omnetpp::cEnum::find("veins::currentState");
-    if (!e) omnetpp::enums.getInstance()->add(e = new omnetpp::cEnum("veins::currentState"));
-    e->insert(INITIALIZING, "INITIALIZING");
-    e->insert(SENDING, "SENDING");
-    e->insert(COLLECTING, "COLLECTING");
-    e->insert(CACHING, "CACHING");
-    e->insert(TESTING, "TESTING");
-    e->insert(REPEATING, "REPEATING");
-)
-
-EXECUTE_ON_STARTUP(
-    omnetpp::cEnum *e = omnetpp::cEnum::find("veins::cachingPolicy");
-    if (!e) omnetpp::enums.getInstance()->add(e = new omnetpp::cEnum("veins::cachingPolicy"));
-    e->insert(FIFO, "FIFO");
-    e->insert(LRU, "LRU");
-    e->insert(LFU, "LFU");
-)
-
-EXECUTE_ON_STARTUP(
-    omnetpp::cEnum *e = omnetpp::cEnum::find("veins::scenario");
-    if (!e) omnetpp::enums.getInstance()->add(e = new omnetpp::cEnum("veins::scenario"));
-    e->insert(CENTRALITY, "CENTRALITY");
-    e->insert(CACHE, "CACHE");
-)
-
-EXECUTE_ON_STARTUP(
-    omnetpp::cEnum *e = omnetpp::cEnum::find("veins::selectedCentrality");
-    if (!e) omnetpp::enums.getInstance()->add(e = new omnetpp::cEnum("veins::selectedCentrality"));
-    e->insert(DEGREE, "DEGREE");
-    e->insert(CLOSENESS, "CLOSENESS");
-    e->insert(BETWEENNESS, "BETWEENNESS");
-    e->insert(NONE, "NONE");
-)
-
 Register_Class(Message)
 
 Message::Message(const char *name, short kind) : ::veins::BaseFrame1609_4(name, kind)
@@ -497,61 +482,71 @@ Message& Message::operator=(const Message& other)
 
 void Message::copy(const Message& other)
 {
+    this->msgId = other.msgId;
     this->senderAddress = other.senderAddress;
+    this->senderPosition = other.senderPosition;
     this->source = other.source;
-    this->target = other.target;
-    this->testFlag = other.testFlag;
-    this->maxHops = other.maxHops;
+    this->dest = other.dest;
+    this->ttl = other.ttl;
     this->hops = other.hops;
     this->type = other.type;
     this->state = other.state;
     this->centrality = other.centrality;
     this->roadData = other.roadData;
-    this->centralityData = other.centralityData;
-    this->ackData = other.ackData;
-    this->rsuList = other.rsuList;
-    this->pathList = other.pathList;
-    this->senderPosition = other.senderPosition;
+    this->msgInfo = other.msgInfo;
+    this->route = other.route;
+    this->rsuRoute = other.rsuRoute;
+    this->previousNodes = other.previousNodes;
 }
 
 void Message::parsimPack(omnetpp::cCommBuffer *b) const
 {
     ::veins::BaseFrame1609_4::parsimPack(b);
+    doParsimPacking(b,this->msgId);
     doParsimPacking(b,this->senderAddress);
+    doParsimPacking(b,this->senderPosition);
     doParsimPacking(b,this->source);
-    doParsimPacking(b,this->target);
-    doParsimPacking(b,this->testFlag);
-    doParsimPacking(b,this->maxHops);
+    doParsimPacking(b,this->dest);
+    doParsimPacking(b,this->ttl);
     doParsimPacking(b,this->hops);
     doParsimPacking(b,this->type);
     doParsimPacking(b,this->state);
     doParsimPacking(b,this->centrality);
     doParsimPacking(b,this->roadData);
-    doParsimPacking(b,this->centralityData);
-    doParsimPacking(b,this->ackData);
-    doParsimPacking(b,this->rsuList);
-    doParsimPacking(b,this->pathList);
-    doParsimPacking(b,this->senderPosition);
+    doParsimPacking(b,this->msgInfo);
+    doParsimPacking(b,this->route);
+    doParsimPacking(b,this->rsuRoute);
+    doParsimPacking(b,this->previousNodes);
 }
 
 void Message::parsimUnpack(omnetpp::cCommBuffer *b)
 {
     ::veins::BaseFrame1609_4::parsimUnpack(b);
+    doParsimUnpacking(b,this->msgId);
     doParsimUnpacking(b,this->senderAddress);
+    doParsimUnpacking(b,this->senderPosition);
     doParsimUnpacking(b,this->source);
-    doParsimUnpacking(b,this->target);
-    doParsimUnpacking(b,this->testFlag);
-    doParsimUnpacking(b,this->maxHops);
+    doParsimUnpacking(b,this->dest);
+    doParsimUnpacking(b,this->ttl);
     doParsimUnpacking(b,this->hops);
     doParsimUnpacking(b,this->type);
     doParsimUnpacking(b,this->state);
     doParsimUnpacking(b,this->centrality);
     doParsimUnpacking(b,this->roadData);
-    doParsimUnpacking(b,this->centralityData);
-    doParsimUnpacking(b,this->ackData);
-    doParsimUnpacking(b,this->rsuList);
-    doParsimUnpacking(b,this->pathList);
-    doParsimUnpacking(b,this->senderPosition);
+    doParsimUnpacking(b,this->msgInfo);
+    doParsimUnpacking(b,this->route);
+    doParsimUnpacking(b,this->rsuRoute);
+    doParsimUnpacking(b,this->previousNodes);
+}
+
+long Message::getMsgId() const
+{
+    return this->msgId;
+}
+
+void Message::setMsgId(long msgId)
+{
+    this->msgId = msgId;
 }
 
 const LAddress::L2Type& Message::getSenderAddress() const
@@ -564,6 +559,16 @@ void Message::setSenderAddress(const LAddress::L2Type& senderAddress)
     this->senderAddress = senderAddress;
 }
 
+const Coord& Message::getSenderPosition() const
+{
+    return this->senderPosition;
+}
+
+void Message::setSenderPosition(const Coord& senderPosition)
+{
+    this->senderPosition = senderPosition;
+}
+
 const LAddress::L2Type& Message::getSource() const
 {
     return this->source;
@@ -574,34 +579,24 @@ void Message::setSource(const LAddress::L2Type& source)
     this->source = source;
 }
 
-const LAddress::L2Type& Message::getTarget() const
+const LAddress::L2Type& Message::getDest() const
 {
-    return this->target;
+    return this->dest;
 }
 
-void Message::setTarget(const LAddress::L2Type& target)
+void Message::setDest(const LAddress::L2Type& dest)
 {
-    this->target = target;
+    this->dest = dest;
 }
 
-int Message::getTestFlag() const
+int Message::getTtl() const
 {
-    return this->testFlag;
+    return this->ttl;
 }
 
-void Message::setTestFlag(int testFlag)
+void Message::setTtl(int ttl)
 {
-    this->testFlag = testFlag;
-}
-
-int Message::getMaxHops() const
-{
-    return this->maxHops;
-}
-
-void Message::setMaxHops(int maxHops)
-{
-    this->maxHops = maxHops;
+    this->ttl = ttl;
 }
 
 int Message::getHops() const
@@ -614,32 +609,32 @@ void Message::setHops(int hops)
     this->hops = hops;
 }
 
-veins::messageType Message::getType() const
+MessageType Message::getType() const
 {
     return this->type;
 }
 
-void Message::setType(veins::messageType type)
+void Message::setType(MessageType type)
 {
     this->type = type;
 }
 
-veins::currentState Message::getState() const
+CurrentState Message::getState() const
 {
     return this->state;
 }
 
-void Message::setState(veins::currentState state)
+void Message::setState(CurrentState state)
 {
     this->state = state;
 }
 
-veins::selectedCentrality Message::getCentrality() const
+CentralityType Message::getCentrality() const
 {
     return this->centrality;
 }
 
-void Message::setCentrality(veins::selectedCentrality centrality)
+void Message::setCentrality(CentralityType centrality)
 {
     this->centrality = centrality;
 }
@@ -654,54 +649,44 @@ void Message::setRoadData(const char * roadData)
     this->roadData = roadData;
 }
 
-int Message::getCentralityData() const
+int Message::getMsgInfo() const
 {
-    return this->centralityData;
+    return this->msgInfo;
 }
 
-void Message::setCentralityData(int centralityData)
+void Message::setMsgInfo(int msgInfo)
 {
-    this->centralityData = centralityData;
+    this->msgInfo = msgInfo;
 }
 
-omnetpp::simtime_t Message::getAckData() const
+const Vector& Message::getRoute() const
 {
-    return this->ackData;
+    return this->route;
 }
 
-void Message::setAckData(omnetpp::simtime_t ackData)
+void Message::setRoute(const Vector& route)
 {
-    this->ackData = ackData;
+    this->route = route;
 }
 
-const List& Message::getRsuList() const
+const Vector& Message::getRsuRoute() const
 {
-    return this->rsuList;
+    return this->rsuRoute;
 }
 
-void Message::setRsuList(const List& rsuList)
+void Message::setRsuRoute(const Vector& rsuRoute)
 {
-    this->rsuList = rsuList;
+    this->rsuRoute = rsuRoute;
 }
 
-const List& Message::getPathList() const
+const Vector& Message::getPreviousNodes() const
 {
-    return this->pathList;
+    return this->previousNodes;
 }
 
-void Message::setPathList(const List& pathList)
+void Message::setPreviousNodes(const Vector& previousNodes)
 {
-    this->pathList = pathList;
-}
-
-const Coord& Message::getSenderPosition() const
-{
-    return this->senderPosition;
-}
-
-void Message::setSenderPosition(const Coord& senderPosition)
-{
-    this->senderPosition = senderPosition;
+    this->previousNodes = previousNodes;
 }
 
 class MessageDescriptor : public omnetpp::cClassDescriptor
@@ -709,21 +694,21 @@ class MessageDescriptor : public omnetpp::cClassDescriptor
   private:
     mutable const char **propertynames;
     enum FieldConstants {
+        FIELD_msgId,
         FIELD_senderAddress,
+        FIELD_senderPosition,
         FIELD_source,
-        FIELD_target,
-        FIELD_testFlag,
-        FIELD_maxHops,
+        FIELD_dest,
+        FIELD_ttl,
         FIELD_hops,
         FIELD_type,
         FIELD_state,
         FIELD_centrality,
         FIELD_roadData,
-        FIELD_centralityData,
-        FIELD_ackData,
-        FIELD_rsuList,
-        FIELD_pathList,
-        FIELD_senderPosition,
+        FIELD_msgInfo,
+        FIELD_route,
+        FIELD_rsuRoute,
+        FIELD_previousNodes,
     };
   public:
     MessageDescriptor();
@@ -798,21 +783,21 @@ unsigned int MessageDescriptor::getFieldTypeFlags(int field) const
         field -= basedesc->getFieldCount();
     }
     static unsigned int fieldTypeFlags[] = {
+        FD_ISEDITABLE,    // FIELD_msgId
         0,    // FIELD_senderAddress
+        0,    // FIELD_senderPosition
         0,    // FIELD_source
-        0,    // FIELD_target
-        FD_ISEDITABLE,    // FIELD_testFlag
-        FD_ISEDITABLE,    // FIELD_maxHops
+        0,    // FIELD_dest
+        FD_ISEDITABLE,    // FIELD_ttl
         FD_ISEDITABLE,    // FIELD_hops
         FD_ISEDITABLE,    // FIELD_type
         FD_ISEDITABLE,    // FIELD_state
         FD_ISEDITABLE,    // FIELD_centrality
         FD_ISEDITABLE,    // FIELD_roadData
-        FD_ISEDITABLE,    // FIELD_centralityData
-        0,    // FIELD_ackData
-        FD_ISCOMPOUND,    // FIELD_rsuList
-        FD_ISCOMPOUND,    // FIELD_pathList
-        0,    // FIELD_senderPosition
+        FD_ISEDITABLE,    // FIELD_msgInfo
+        FD_ISCOMPOUND,    // FIELD_route
+        FD_ISCOMPOUND,    // FIELD_rsuRoute
+        FD_ISCOMPOUND,    // FIELD_previousNodes
     };
     return (field >= 0 && field < 15) ? fieldTypeFlags[field] : 0;
 }
@@ -826,21 +811,21 @@ const char *MessageDescriptor::getFieldName(int field) const
         field -= basedesc->getFieldCount();
     }
     static const char *fieldNames[] = {
+        "msgId",
         "senderAddress",
+        "senderPosition",
         "source",
-        "target",
-        "testFlag",
-        "maxHops",
+        "dest",
+        "ttl",
         "hops",
         "type",
         "state",
         "centrality",
         "roadData",
-        "centralityData",
-        "ackData",
-        "rsuList",
-        "pathList",
-        "senderPosition",
+        "msgInfo",
+        "route",
+        "rsuRoute",
+        "previousNodes",
     };
     return (field >= 0 && field < 15) ? fieldNames[field] : nullptr;
 }
@@ -849,21 +834,21 @@ int MessageDescriptor::findField(const char *fieldName) const
 {
     omnetpp::cClassDescriptor *basedesc = getBaseClassDescriptor();
     int base = basedesc ? basedesc->getFieldCount() : 0;
-    if (fieldName[0] == 's' && strcmp(fieldName, "senderAddress") == 0) return base+0;
-    if (fieldName[0] == 's' && strcmp(fieldName, "source") == 0) return base+1;
-    if (fieldName[0] == 't' && strcmp(fieldName, "target") == 0) return base+2;
-    if (fieldName[0] == 't' && strcmp(fieldName, "testFlag") == 0) return base+3;
-    if (fieldName[0] == 'm' && strcmp(fieldName, "maxHops") == 0) return base+4;
-    if (fieldName[0] == 'h' && strcmp(fieldName, "hops") == 0) return base+5;
-    if (fieldName[0] == 't' && strcmp(fieldName, "type") == 0) return base+6;
-    if (fieldName[0] == 's' && strcmp(fieldName, "state") == 0) return base+7;
-    if (fieldName[0] == 'c' && strcmp(fieldName, "centrality") == 0) return base+8;
-    if (fieldName[0] == 'r' && strcmp(fieldName, "roadData") == 0) return base+9;
-    if (fieldName[0] == 'c' && strcmp(fieldName, "centralityData") == 0) return base+10;
-    if (fieldName[0] == 'a' && strcmp(fieldName, "ackData") == 0) return base+11;
-    if (fieldName[0] == 'r' && strcmp(fieldName, "rsuList") == 0) return base+12;
-    if (fieldName[0] == 'p' && strcmp(fieldName, "pathList") == 0) return base+13;
-    if (fieldName[0] == 's' && strcmp(fieldName, "senderPosition") == 0) return base+14;
+    if (fieldName[0] == 'm' && strcmp(fieldName, "msgId") == 0) return base+0;
+    if (fieldName[0] == 's' && strcmp(fieldName, "senderAddress") == 0) return base+1;
+    if (fieldName[0] == 's' && strcmp(fieldName, "senderPosition") == 0) return base+2;
+    if (fieldName[0] == 's' && strcmp(fieldName, "source") == 0) return base+3;
+    if (fieldName[0] == 'd' && strcmp(fieldName, "dest") == 0) return base+4;
+    if (fieldName[0] == 't' && strcmp(fieldName, "ttl") == 0) return base+5;
+    if (fieldName[0] == 'h' && strcmp(fieldName, "hops") == 0) return base+6;
+    if (fieldName[0] == 't' && strcmp(fieldName, "type") == 0) return base+7;
+    if (fieldName[0] == 's' && strcmp(fieldName, "state") == 0) return base+8;
+    if (fieldName[0] == 'c' && strcmp(fieldName, "centrality") == 0) return base+9;
+    if (fieldName[0] == 'r' && strcmp(fieldName, "roadData") == 0) return base+10;
+    if (fieldName[0] == 'm' && strcmp(fieldName, "msgInfo") == 0) return base+11;
+    if (fieldName[0] == 'r' && strcmp(fieldName, "route") == 0) return base+12;
+    if (fieldName[0] == 'r' && strcmp(fieldName, "rsuRoute") == 0) return base+13;
+    if (fieldName[0] == 'p' && strcmp(fieldName, "previousNodes") == 0) return base+14;
     return basedesc ? basedesc->findField(fieldName) : -1;
 }
 
@@ -876,21 +861,21 @@ const char *MessageDescriptor::getFieldTypeString(int field) const
         field -= basedesc->getFieldCount();
     }
     static const char *fieldTypeStrings[] = {
+        "long",    // FIELD_msgId
         "veins::LAddress::L2Type",    // FIELD_senderAddress
-        "veins::LAddress::L2Type",    // FIELD_source
-        "veins::LAddress::L2Type",    // FIELD_target
-        "int",    // FIELD_testFlag
-        "int",    // FIELD_maxHops
-        "int",    // FIELD_hops
-        "veins::messageType",    // FIELD_type
-        "veins::currentState",    // FIELD_state
-        "veins::selectedCentrality",    // FIELD_centrality
-        "string",    // FIELD_roadData
-        "int",    // FIELD_centralityData
-        "omnetpp::simtime_t",    // FIELD_ackData
-        "List",    // FIELD_rsuList
-        "List",    // FIELD_pathList
         "veins::Coord",    // FIELD_senderPosition
+        "veins::LAddress::L2Type",    // FIELD_source
+        "veins::LAddress::L2Type",    // FIELD_dest
+        "int",    // FIELD_ttl
+        "int",    // FIELD_hops
+        "MessageType",    // FIELD_type
+        "CurrentState",    // FIELD_state
+        "CentralityType",    // FIELD_centrality
+        "string",    // FIELD_roadData
+        "int",    // FIELD_msgInfo
+        "Vector",    // FIELD_route
+        "Vector",    // FIELD_rsuRoute
+        "Vector",    // FIELD_previousNodes
     };
     return (field >= 0 && field < 15) ? fieldTypeStrings[field] : nullptr;
 }
@@ -930,13 +915,13 @@ const char *MessageDescriptor::getFieldProperty(int field, const char *propertyn
     }
     switch (field) {
         case FIELD_type:
-            if (!strcmp(propertyname, "enum")) return "veins::messageType";
+            if (!strcmp(propertyname, "enum")) return "MessageType";
             return nullptr;
         case FIELD_state:
-            if (!strcmp(propertyname, "enum")) return "veins::currentState";
+            if (!strcmp(propertyname, "enum")) return "CurrentState";
             return nullptr;
         case FIELD_centrality:
-            if (!strcmp(propertyname, "enum")) return "veins::selectedCentrality";
+            if (!strcmp(propertyname, "enum")) return "CentralityType";
             return nullptr;
         default: return nullptr;
     }
@@ -980,21 +965,21 @@ std::string MessageDescriptor::getFieldValueAsString(void *object, int field, in
     }
     Message *pp = (Message *)object; (void)pp;
     switch (field) {
+        case FIELD_msgId: return long2string(pp->getMsgId());
         case FIELD_senderAddress: {std::stringstream out; out << pp->getSenderAddress(); return out.str();}
-        case FIELD_source: {std::stringstream out; out << pp->getSource(); return out.str();}
-        case FIELD_target: {std::stringstream out; out << pp->getTarget(); return out.str();}
-        case FIELD_testFlag: return long2string(pp->getTestFlag());
-        case FIELD_maxHops: return long2string(pp->getMaxHops());
-        case FIELD_hops: return long2string(pp->getHops());
-        case FIELD_type: return enum2string(pp->getType(), "veins::messageType");
-        case FIELD_state: return enum2string(pp->getState(), "veins::currentState");
-        case FIELD_centrality: return enum2string(pp->getCentrality(), "veins::selectedCentrality");
-        case FIELD_roadData: return oppstring2string(pp->getRoadData());
-        case FIELD_centralityData: return long2string(pp->getCentralityData());
-        case FIELD_ackData: return simtime2string(pp->getAckData());
-        case FIELD_rsuList: {std::stringstream out; out << pp->getRsuList(); return out.str();}
-        case FIELD_pathList: {std::stringstream out; out << pp->getPathList(); return out.str();}
         case FIELD_senderPosition: {std::stringstream out; out << pp->getSenderPosition(); return out.str();}
+        case FIELD_source: {std::stringstream out; out << pp->getSource(); return out.str();}
+        case FIELD_dest: {std::stringstream out; out << pp->getDest(); return out.str();}
+        case FIELD_ttl: return long2string(pp->getTtl());
+        case FIELD_hops: return long2string(pp->getHops());
+        case FIELD_type: return enum2string(pp->getType(), "MessageType");
+        case FIELD_state: return enum2string(pp->getState(), "CurrentState");
+        case FIELD_centrality: return enum2string(pp->getCentrality(), "CentralityType");
+        case FIELD_roadData: return oppstring2string(pp->getRoadData());
+        case FIELD_msgInfo: return long2string(pp->getMsgInfo());
+        case FIELD_route: {std::stringstream out; out << pp->getRoute(); return out.str();}
+        case FIELD_rsuRoute: {std::stringstream out; out << pp->getRsuRoute(); return out.str();}
+        case FIELD_previousNodes: {std::stringstream out; out << pp->getPreviousNodes(); return out.str();}
         default: return "";
     }
 }
@@ -1009,14 +994,14 @@ bool MessageDescriptor::setFieldValueAsString(void *object, int field, int i, co
     }
     Message *pp = (Message *)object; (void)pp;
     switch (field) {
-        case FIELD_testFlag: pp->setTestFlag(string2long(value)); return true;
-        case FIELD_maxHops: pp->setMaxHops(string2long(value)); return true;
+        case FIELD_msgId: pp->setMsgId(string2long(value)); return true;
+        case FIELD_ttl: pp->setTtl(string2long(value)); return true;
         case FIELD_hops: pp->setHops(string2long(value)); return true;
-        case FIELD_type: pp->setType((veins::messageType)string2enum(value, "veins::messageType")); return true;
-        case FIELD_state: pp->setState((veins::currentState)string2enum(value, "veins::currentState")); return true;
-        case FIELD_centrality: pp->setCentrality((veins::selectedCentrality)string2enum(value, "veins::selectedCentrality")); return true;
+        case FIELD_type: pp->setType((MessageType)string2enum(value, "MessageType")); return true;
+        case FIELD_state: pp->setState((CurrentState)string2enum(value, "CurrentState")); return true;
+        case FIELD_centrality: pp->setCentrality((CentralityType)string2enum(value, "CentralityType")); return true;
         case FIELD_roadData: pp->setRoadData((value)); return true;
-        case FIELD_centralityData: pp->setCentralityData(string2long(value)); return true;
+        case FIELD_msgInfo: pp->setMsgInfo(string2long(value)); return true;
         default: return false;
     }
 }
@@ -1030,8 +1015,9 @@ const char *MessageDescriptor::getFieldStructName(int field) const
         field -= basedesc->getFieldCount();
     }
     switch (field) {
-        case FIELD_rsuList: return omnetpp::opp_typename(typeid(List));
-        case FIELD_pathList: return omnetpp::opp_typename(typeid(List));
+        case FIELD_route: return omnetpp::opp_typename(typeid(Vector));
+        case FIELD_rsuRoute: return omnetpp::opp_typename(typeid(Vector));
+        case FIELD_previousNodes: return omnetpp::opp_typename(typeid(Vector));
         default: return nullptr;
     };
 }
@@ -1047,11 +1033,12 @@ void *MessageDescriptor::getFieldStructValuePointer(void *object, int field, int
     Message *pp = (Message *)object; (void)pp;
     switch (field) {
         case FIELD_senderAddress: return toVoidPtr(&pp->getSenderAddress()); break;
-        case FIELD_source: return toVoidPtr(&pp->getSource()); break;
-        case FIELD_target: return toVoidPtr(&pp->getTarget()); break;
-        case FIELD_rsuList: return toVoidPtr(&pp->getRsuList()); break;
-        case FIELD_pathList: return toVoidPtr(&pp->getPathList()); break;
         case FIELD_senderPosition: return toVoidPtr(&pp->getSenderPosition()); break;
+        case FIELD_source: return toVoidPtr(&pp->getSource()); break;
+        case FIELD_dest: return toVoidPtr(&pp->getDest()); break;
+        case FIELD_route: return toVoidPtr(&pp->getRoute()); break;
+        case FIELD_rsuRoute: return toVoidPtr(&pp->getRsuRoute()); break;
+        case FIELD_previousNodes: return toVoidPtr(&pp->getPreviousNodes()); break;
         default: return nullptr;
     }
 }
