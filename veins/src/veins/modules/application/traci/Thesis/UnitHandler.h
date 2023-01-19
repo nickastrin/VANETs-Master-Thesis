@@ -32,9 +32,11 @@ namespace veins
 
                 int attempts;
                 int usedFrequency;
+
+                MessageType type;
                 
-                std::string roadData;        // Variable for LFU policy
-                std::vector<long> rsu;  // Variable for betweenness
+                std::string roadData;       // Variable for LFU policy
+                std::vector<long> rsu;      // Variable for betweenness
 
                 MessageData(Message *wsm)
                 {
@@ -51,28 +53,30 @@ namespace veins
                     usedFrequency = 0;      
                     attempts = 0;           
 
+                    type = wsm->getType();
+
                     roadData = wsm->getRoadData();
                 }
 
                 // Auxilary functions used for the sort function
                 static bool sortFIFO(const MessageData &a, const MessageData &b)
                 {
-                    return a.receivedAt < b.receivedAt;
+                    return a.receivedAt > b.receivedAt;
                 }
 
                 static bool sortLRU(const MessageData &a, const MessageData &b)
                 {
-                    return a.lastUsed < b.lastUsed;
+                    return a.lastUsed > b.lastUsed;
                 }
 
                 static bool sortLFU(const MessageData &a, const MessageData &b)
                 {
-                    return a.usedFrequency < b.usedFrequency;
+                    return a.usedFrequency > b.usedFrequency;
                 }
 
                 static bool sortRestore(const MessageData &a, const MessageData &b)
                 {
-                    return a.timestamp < b.timestamp;
+                    return a.timestamp > b.timestamp;
                 }
             };
         
@@ -193,7 +197,7 @@ namespace veins
             bool routingTableUpdate(Message *wsm, routingDict &routing);
 
             /** @brief Auxilary function for routing table update*/
-            bool auxilaryRoute(std::vector<long> &path, routingDict &routing);
+            bool auxilaryRoute(Message *wsm, std::vector<long> &path, routingDict &routing);
 
             /** @brief Handler for insertion of accepted messages */
             bool insertMessage(
@@ -238,7 +242,9 @@ namespace veins
             //TODO: Check what to do with collectionInterval
             //simtime_t collectionInterval;       // Time until centrality calculation
             roadsDeque roadStatus;              // Stores roads with accidents
-
+            long val;
+            long send;
+            MessageType heh;
             // Variables for unit function
             CachingPolicy policy;
             UnitType unit;

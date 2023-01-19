@@ -22,7 +22,7 @@ void RsuHandler::initialize(int stage)
         // Caching variables
         capacity = 25;
         threshold = 30;
-        flushed = 4;
+        flushed = 3;
 
         ttl = 25;       // Default maximum ttl
         calculating = false;
@@ -134,9 +134,11 @@ void RsuHandler::onBetweennessReply(Message *wsm)
 {
     if (wsm->getDest() == myId)
     {
+        std::cout << wsm->getMsgInfo() << endl;
         betweenness += wsm->getMsgInfo();
 
         // TODO: Send acknowledgement
+        delete(wsm);
     }
 
     else

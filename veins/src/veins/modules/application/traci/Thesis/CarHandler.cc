@@ -20,11 +20,12 @@ void CarHandler::initialize(int stage)
         betweenness = 0;
 
         // Caching variables
-        capacity = 25;
+        capacity = 15;
         threshold = 30;
-        flushed = 4;
+        flushed = 3;
 
         ttl = 25;       // Default maximum ttl
+        calculating = false;
 
         // Misc car variables
         currentSubscribedServiceId = -1;

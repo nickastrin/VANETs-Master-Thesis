@@ -143,7 +143,7 @@ namespace veins {
  * 
  *     // Message data
  *     string roadData;            // Information about road
- *     int msgInfo;                // Misc message info
+ *     int msgInfo = 0;                // Misc message info
  * 
  *     // Route variables
  *     Vector route;               // Route taken
