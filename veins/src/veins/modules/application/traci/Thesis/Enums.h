@@ -21,3 +21,10 @@ enum class Scenario
     CACHE,
     ACKNOWLEDGEMENT
 };
+
+// Used for origin information caching policy
+enum class OriginPolicy
+{
+    PULL,
+    PUSH
+};

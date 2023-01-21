@@ -80,6 +80,7 @@ namespace veins
                 }
             };
         
+            typedef std::vector<long> pathVector;
             typedef std::deque<std::string> roadsDeque;
             typedef std::deque<MessageData> dataDeque;
             typedef std::map<long, std::vector<long>> routingDict;
@@ -183,7 +184,7 @@ namespace veins
             void onAcknowledgement(Message *wsm, dataDeque &acks);
 
             /** @brief Auxilary routing functions */
-            bool inRoute(std::vector<long> route);
+            bool inRoute(pathVector route);
 
             /** @brief Handler for accepting incoming messages */
             bool receiveMessage(
@@ -197,7 +198,7 @@ namespace veins
             bool routingTableUpdate(Message *wsm, routingDict &routing);
 
             /** @brief Auxilary function for routing table update*/
-            bool auxilaryRoute(Message *wsm, std::vector<long> &path, routingDict &routing);
+            bool auxilaryRoute(pathVector &path, routingDict &routing);
 
             /** @brief Handler for insertion of accepted messages */
             bool insertMessage(
@@ -227,7 +228,7 @@ namespace veins
             int flushed;
             simtime_t threshold;
 
-            bool calculating;
+            pathVector requestedBy;           // Vector that stores RSU IDs that requested betweenness
 
             // Variables for message storage
             dataDeque storedMessages;         // Messages stored in cache
@@ -241,12 +242,11 @@ namespace veins
 
             //TODO: Check what to do with collectionInterval
             //simtime_t collectionInterval;       // Time until centrality calculation
-            roadsDeque roadStatus;              // Stores roads with accidents
-            long val;
-            long send;
-            MessageType heh;
+            roadsDeque roadStatus;                // Stores roads with accidents
+
             // Variables for unit function
             CachingPolicy policy;
+            OriginPolicy origin;
             UnitType unit;
 
     };

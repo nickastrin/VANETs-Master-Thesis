@@ -25,7 +25,6 @@ void CarHandler::initialize(int stage)
         flushed = 3;
 
         ttl = 25;       // Default maximum ttl
-        calculating = false;
 
         // Misc car variables
         currentSubscribedServiceId = -1;

@@ -22,10 +22,9 @@ void RsuHandler::initialize(int stage)
         // Caching variables
         capacity = 25;
         threshold = 30;
-        flushed = 3;
+        flushed = 10;
 
         ttl = 25;       // Default maximum ttl
-        calculating = false;
 
         // Simulation variables
         unit = UnitType::RSU;
@@ -117,8 +116,21 @@ void RsuHandler::onDegreeReply(Message *wsm)
     if (wsm->getDest() == myId)
     {
         degree++;
+        //std::cout << "node " << wsm->getSource() << endl;
 
-        // TODO: Send acknowledgement
+        // Create acknowledgement message
+        Message *ack = new Message();
+        populateWSM(ack);
+        // Define message ids and properties
+        ack->setSenderAddress(myId);
+        ack->setSenderPosition(curPosition);
+        ack->setSource(myId);
+        ack->setDest(wsm->getSource());
+        ack->setAckInfo(wsm->getCreationTime());
+        ack->setTtl(wsm->getHops());
+        ack->setType(MessageType::ACKNOWLEDGEMENT);
+
+        scheduleAt(simTime() + 0.1 + uniform(0.01, 0.2), ack);
     }
 
     else
@@ -134,11 +146,9 @@ void RsuHandler::onBetweennessReply(Message *wsm)
 {
     if (wsm->getDest() == myId)
     {
-        std::cout << wsm->getMsgInfo() << endl;
         betweenness += wsm->getMsgInfo();
 
         // TODO: Send acknowledgement
-        delete(wsm);
     }
 
     else

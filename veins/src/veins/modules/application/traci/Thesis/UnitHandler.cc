@@ -82,7 +82,7 @@ void UnitHandler::requestingMsg(Message *wsm)
     {
         req->setType(MessageType::ROUTE_REQ);
 
-        std::vector<long> route;
+        pathVector route;
         route.push_back(myId);
         req->setRoute(route);
     }
@@ -110,17 +110,6 @@ void UnitHandler::collectingMsg(
 {
     float result = 0;
 
-/*
-    // Print routing table, for debugging
-    std::cout << "Node " << myId << endl;
-    for (auto i = routing.begin(); i != routing.end(); i++)
-    {
-        std::cout << i->first << ": { ";
-        for (auto j = i->second.begin(); j != i->second.end(); j++)
-            std::cout << *j << " ";
-        std::cout << "}\n";
-    }
-*/  
     // Handle different message types
     MessageType type = wsm->getType();
     if (type == MessageType::ROUTE_REQ)
@@ -134,7 +123,6 @@ void UnitHandler::collectingMsg(
         closeness = result; 
     }
 
-    // TODO: check if it works
     else if (type == MessageType::CENTRALITY_REQ)
     {
         CentralityType centrality = wsm->getCentrality();
@@ -172,15 +160,9 @@ void UnitHandler::collectingMsg(
                 results->setType(MessageType::CENTRALITY_REPLY);
                 results->setCentrality(CentralityType::BETWEENNESS); 
 
-                std::cout << "Node " << myId << endl;
-                // TODO: Optimize rsu search
+                // Calculate result and send it to the RSU
                 for (auto i = routing.begin(); i != routing.end(); i++)
                 {
-                    std::cout << i->first << ": { ";
-                    for (auto j = i->second.begin(); j != i->second.end(); j++)
-                        std::cout << *j << " ";
-                    std::cout << "}\n";
-
                     auto it = std::find(i->second.begin(), i->second.end(), wsm->getDest());
                     if (it != i->second.end())
                         result++;
@@ -189,21 +171,27 @@ void UnitHandler::collectingMsg(
                 results->setMsgInfo(result);
                 scheduleAt(simTime() + 0.1 + uniform(0.01, 0.5), results);
 
-                calculating = false;
+                // Calculation complete, remove RSU from vector
+                auto it = std::find(requestedBy.begin(), requestedBy.end(), wsm->getDest());
+                if (it != requestedBy.end())
+                {
+                    long id = requestedBy.back();
+                    std::swap(*it, id);
+                    requestedBy.pop_back();
+                }
 
                 // TODO: Put acknowledgements here
             }
         }
     }
 
-    // TODO: Clear routing table
+    if (requestedBy.empty())
+        routing.clear();
     delete(wsm);
 }
 
 void UnitHandler::repeatingMsg(Message *wsm, dataDeque &acks)
 {
-    // TODO: Check if it works
-    // TODO: Maybe change it so that the search happens only when it has surpassed attempts
     // Search if message in the acknowledgemnets deque
     auto it = std::find_if(acks.begin(), acks.end(),
         [&wsm](MessageData data) { return (wsm->getMsgId() == data.id); });
@@ -215,9 +203,11 @@ void UnitHandler::repeatingMsg(Message *wsm, dataDeque &acks)
         {
             // To optimize deletion, swap element with last
             // And delete it, taking advantage of deque pop_back
-            auto lastElem = acks.back();
+            MessageData lastElem = acks.back();
             std::swap(*it, lastElem);
             acks.pop_back();
+
+            delete(wsm);
         }
 
         else
@@ -225,16 +215,17 @@ void UnitHandler::repeatingMsg(Message *wsm, dataDeque &acks)
             it->attempts++;
 
             // If message hasn't been acknowledged, reschedule repeat check
-            wsm->setTtl(wsm->getTtl() + 1);
+            wsm->setTtl(wsm->getTtl());
             scheduleAt(simTime() + uniform(0.01, 0.2), wsm->dup());
 
             // And resend the message with higher hop count
             wsm->setState(CurrentState::SENDING);
-            scheduleAt(simTime() + uniform(0.01, 0.2), wsm->dup());
+            scheduleAt(simTime() + uniform(0.01, 0.2), wsm);
         }
-        
-        delete(wsm);
     } 
+
+    else 
+        delete(wsm);
 }
 
 void UnitHandler::cachingMsg(
@@ -245,9 +236,10 @@ void UnitHandler::cachingMsg(
 {
     simtime_t now = simTime();
 
-    EV << "Threshold control...\n";
+    // Perform threshold control
     if (!messages.empty())
     {
+        // Transfer stale messages to candidate deque
         auto it = messages.rbegin();
         while (now - it->timestamp > limit)
         {
@@ -272,6 +264,7 @@ void UnitHandler::onWSM(BaseFrame1609_4* frame)
     if (receiveMessage(wsm, storedMessages, candidateMessages, routingTable))
     {
         EV << "Message has been accepted by node with ID " << myId << endl;
+        // Change color depending on what type of unit you are
         switch (unit)
         {
             case UnitType::VEHICLE:
@@ -287,6 +280,7 @@ void UnitHandler::onWSM(BaseFrame1609_4* frame)
                 break;
         }
 
+        // Handlers for different message types
         MessageType type = wsm->getType();
         switch (type)
         {
@@ -329,8 +323,10 @@ void UnitHandler::onRequest(
 
     if (it != roads.end())
     {
+        // Create reply message
         Message *reply = new Message();
         populateWSM(reply);
+        // Define message ids and properties
         reply->setSenderAddress(myId);
         reply->setSenderPosition(curPosition);
         reply->setSource(myId);
@@ -338,12 +334,16 @@ void UnitHandler::onRequest(
         reply->setRoadData(wsm->getRoadData());
         reply->setType(MessageType::REPLY);
 
-        scheduleAt(simTime() + 0.1 + uniform(0.01, 0.2), reply);
+        scheduleAt(simTime() + 0.1 + uniform(0.01, 0.2), reply->dup());
+        
+        // Push message in pending acknowledgements deque
+        acks.push_front(MessageData(reply));
+        reply->setState(CurrentState::REPEATING);
 
-        // TODO: Put acknowledgements here
+        scheduleAt(simTime() + 5 + uniform(0.01, 0.2), reply);
     }
 
-    // Forward the message to othre nodes
+    // Forward the message to other nodes
     wsm->setSenderAddress(myId);
     wsm->setSenderPosition(curPosition);
     scheduleAt(simTime() + 2 + uniform(0.01, 0.2), wsm->dup());
@@ -363,8 +363,20 @@ void UnitHandler::onReply(Message *wsm)
     {
         findHost()->getDisplayString().setTagArg("i", 1, "purple");
         std::cout << "Node " << myId << " received message after " << wsm->getHops() << " hop(s).\n";
+        
+        // Create acknowledgement message
+        Message *ack = new Message();
+        populateWSM(ack);
+        // Define message ids and properties
+        ack->setSenderAddress(myId);
+        ack->setSenderPosition(curPosition);
+        ack->setSource(myId);
+        ack->setDest(wsm->getSource());
+        ack->setAckInfo(wsm->getCreationTime());
+        ack->setTtl(wsm->getHops());
+        ack->setType(MessageType::ACKNOWLEDGEMENT);
 
-        // TODO: Send acknowledgement here
+        scheduleAt(simTime() + 0.1 + uniform(0.01, 0.2), ack);
     }
 }
 
@@ -375,43 +387,43 @@ void UnitHandler::onRouteReq(
     routingDict &routing,
     dataDeque &acks)
 {
-    std::vector<long> route = wsm->getRoute();
-    if (!inRoute(route))
-    {
-        std::vector<long> previous = wsm->getPreviousNodes();
+    pathVector route = wsm->getRoute();
+    pathVector previous = wsm->getPreviousNodes();
+    
+    // Create route reply
+    Message *reply = new Message();
+    populateWSM(reply);
+    // Define reply identifiers
+    reply->setSenderAddress(myId);
+    reply->setSenderPosition(curPosition);
+    reply->setRecipientAddress(route.back());
+    reply->setSource(myId);
+    reply->setDest(wsm->getSource());
+    reply->setTtl(route.size());
+    // Change routing details
+    previous.push_back(myId);
+    reply->setPreviousNodes(previous);
+    route.pop_back();
+    reply->setRoute(route);
+    reply->setType(MessageType::ROUTE_REPLY);
 
-        // Create route reply
-        Message *reply = new Message();
-        populateWSM(reply);
-        reply->setSenderAddress(myId);
-        reply->setSenderPosition(curPosition);
-        reply->setRecipientAddress(route.back());
-        reply->setSource(myId);
-        reply->setDest(wsm->getSource());
-        reply->setTtl(route.size());
-        std::vector<long> debug = wsm->getRsuRoute();
-        wsm->setRsuRoute(debug);
-        debug.push_back(0);
-        reply->setRsuRoute(debug);
-        previous.push_back(myId);
-        reply->setPreviousNodes(previous);
-        route.pop_back();
-        reply->setRoute(route);
-        reply->setType(MessageType::ROUTE_REPLY);
+    scheduleAt(simTime() + 0.1 + uniform(0.01, 0.5), reply);
 
-        scheduleAt(simTime() + 0.1 + uniform(0.01, 0.5), reply);
+    // TODO: Remove from comment to handle acks
+    // Push message in pending acknowledgements deque
+    //acks.push_front(MessageData(reply));
+    //reply->setState(CurrentState::REPEATING);
 
-        // TODO: Put acknowledgement here
+    //scheduleAt(simTime() + 5 + uniform(0.01, 0.2), reply);
 
-        // Add your id to the path list and broadcast again
-        route = wsm->getRoute();
-        route.push_back(myId);
-        wsm->setRoute(route);
-        wsm->setSenderAddress(myId);
-        wsm->setSenderPosition(curPosition);
+    // Add your id to the route vector and broadcast again
+    route = wsm->getRoute();
+    route.push_back(myId);
+    wsm->setRoute(route);
+    wsm->setSenderAddress(myId);
+    wsm->setSenderPosition(curPosition);
 
-        scheduleAt(simTime() + 0.2 + uniform(0.01, 0.5), wsm->dup());
-    }
+    scheduleAt(simTime() + 0.2 + uniform(0.01, 0.5), wsm->dup());
 }
 
 void UnitHandler::onRouteReply(Message *wsm, routingDict &routing)
@@ -419,19 +431,36 @@ void UnitHandler::onRouteReply(Message *wsm, routingDict &routing)
     // If it's meant for you, accept
     if (wsm->getDest() == myId)
     {
-        // TODO: Send acknowledgement
+        EV << "Node " << myId << " accepted route reply.\n";
+
+        // TODO: Remove from comment to handle acks
+        /*
+        // Create acknowledgement message
+        Message *ack = new Message();
+        populateWSM(ack);
+        // Define message ids and properties
+        ack->setSenderAddress(myId);
+        ack->setSenderPosition(curPosition);
+        ack->setSource(myId);
+        ack->setDest(wsm->getSource());
+        ack->setAckInfo(wsm->getCreationTime());
+        ack->setTtl(wsm->getHops());
+        ack->setType(MessageType::ACKNOWLEDGEMENT);
+
+        scheduleAt(simTime() + 0.1 + uniform(0.01, 0.2), ack);*/
     }
 
     // Else, forward
     else 
     {
-        std::vector<long> route = wsm->getRoute();
-        std::vector<long> previous = wsm->getPreviousNodes();
+        pathVector route = wsm->getRoute();
+        pathVector previous = wsm->getPreviousNodes();
 
+        // Change message identifiers
         wsm->setSenderAddress(myId);
         wsm->setSenderPosition(curPosition);
         wsm->setRecipientAddress(route.back());
-                
+        // Change routing details
         previous.push_back(myId);
         wsm->setPreviousNodes(previous);
         route.pop_back();
@@ -467,10 +496,10 @@ void UnitHandler::onDegreeReq(
     routingDict &routing,
     dataDeque &acks)
 {
-    // TODO: Change depending on the function of the routing table
-
+    // Create reply message
     Message *reply = new Message();
     populateWSM(reply);
+    // Define reply ids and properties
     reply->setSenderAddress(myId);
     reply->setSenderPosition(curPosition);
     reply->setSource(myId);
@@ -478,27 +507,32 @@ void UnitHandler::onDegreeReq(
     reply->setType(MessageType::CENTRALITY_REPLY);
     reply->setCentrality(CentralityType::DEGREE);
 
-    scheduleAt(simTime() + 0.1 + uniform(0.01, 0.5), reply);
+    scheduleAt(simTime() + 0.1 + uniform(0.01, 0.5), reply->dup());
 
-    // TODO: Acknowledgement here
+    // Push message in pending acknowledgements deque
+    acks.push_front(MessageData(reply));
+    reply->setState(CurrentState::REPEATING);
+
+    scheduleAt(simTime() + 5 + uniform(0.01, 0.2), reply);
 }
 
 void UnitHandler::onBetweennessReq(Message *wsm, dataDeque &acks)
 {
-    if (!calculating)
+    auto it = std::find(requestedBy.begin(), requestedBy.end(), wsm->getSource());
+    if (it == requestedBy.end())
     {
-        std::cout << "GOT REQUEST, NODE " << myId << endl;
-        calculating = true;
+        // To ensure node doesnt respond twice to the same request
+        requestedBy.push_back(wsm->getSource());
 
         // Create route request
         Message *req = new Message();
         populateWSM(req);
-
+        // Define request identifiers
         req->setSenderAddress(myId);
         req->setSenderPosition(curPosition);
         req->setSource(myId);
-
-        std::vector<long> route = wsm->getRoute();
+        // Define request details
+        pathVector route = wsm->getRoute();
         route.push_back(myId);
         req->setRoute(route);
         req->setTtl(ttl);
@@ -512,9 +546,10 @@ void UnitHandler::onBetweennessReq(Message *wsm, dataDeque &acks)
 
         scheduleAt(simTime() + 0.2 + uniform(0.01, 0.5), wsm->dup());
 
+        // Create collection message
         Message *collect = new Message();
         populateWSM(collect);
-
+        // Define collection details
         collect->setDest(wsm->getSource());
         collect->setState(CurrentState::COLLECTING);
         collect->setType(MessageType::CENTRALITY_REQ);
@@ -546,37 +581,34 @@ void UnitHandler::onCentralityReply(Message *wsm)
 
 void UnitHandler::onAcknowledgement(Message *wsm, dataDeque &acks)
 {
-    if (wsm->getDest() == myId)
-    {
-        EV << "Acknowledgement received..." << endl;
-        // TODO: Validate if it works
-        // Find the message you received acknowledgement for
-        auto it = std::find_if(acks.begin(), acks.end(),
-            [&wsm](MessageData data) { return (wsm->getMsgInfo() == data.id); });
-
-        if (it != acks.end())
-        {
-            // To optimize deletion, swap element with last
-            // And delete it, taking advantage of deque pop_back
-            auto lastElem = acks.back();
-            std::swap(*it, lastElem);
-            acks.pop_back();
-        }
-    }
-
-    else 
+    if (wsm->getDest() != myId)
     {
         wsm->setSenderAddress(myId);
         wsm->setSenderPosition(curPosition);
         scheduleAt(simTime() + uniform(0.01, 0.2), wsm->dup());
     }
 
-    delete(wsm);
-}
+    else
+    {
+        EV << "Acknowledgement received..." << endl;
+        // Find the message you received acknowledgement for
+        auto it = std::find_if(acks.begin(), acks.end(),
+            [&wsm](MessageData data) 
+            { return (wsm->getSource() == data.dest); });
 
+        if (it != acks.end())
+        {
+            // To optimize deletion, swap element with last
+            // And delete it, taking advantage of deque pop_back
+            MessageData lastElem = acks.back();
+            std::swap(*it, lastElem);
+            acks.pop_back();
+        }
+    }
+}
 // ------------ Routing Functions ------------ //
 
-bool UnitHandler::inRoute(std::vector<long> route)
+bool UnitHandler::inRoute(pathVector route)
 {
     // Search the current route
     auto it = std::find_if(route.begin(), route.end(),
@@ -594,7 +626,6 @@ bool UnitHandler::receiveMessage(
     dataDeque &candidates,
     routingDict &routing)
 {
-    // TODO: Check if this is working
     if (wsm->getSource() == myId)
         return false;
 
@@ -602,14 +633,14 @@ bool UnitHandler::receiveMessage(
     bool insertion = false;
 
     // Check if routing table needs an update
-    std::vector<long> route = wsm->getRoute();
-    std::vector<long> previous = wsm->getPreviousNodes();
-    std::vector<long> debug = wsm->getRsuRoute();
-    if (debug.empty())
-        debug.push_back(wsm->getSource());
-    debug.push_back(myId);
-    wsm->setRsuRoute(debug);
+    pathVector route = wsm->getRoute();
+    pathVector previous = wsm->getPreviousNodes();
 
+    // If you're already in route, return false
+    if (inRoute(route))
+        return false;
+
+    // Check if you can extract route info
     if (!route.empty() || !previous.empty())
     {
         update = routingTableUpdate(wsm, routing);
@@ -627,51 +658,21 @@ bool UnitHandler::receiveMessage(
 
 bool UnitHandler::routingTableUpdate(Message *wsm, routingDict &routing)
 {
-    std::vector<long> path = wsm->getRoute();
+    pathVector path = wsm->getRoute();
     bool update = false;
 
-    update = auxilaryRoute(wsm, path, routing);
+    update = auxilaryRoute(path, routing);
     if (!update)
         return false;
 
-    val = wsm->getSource();
-    send = wsm->getSenderAddress();
-    heh= wsm->getType();
-
     path = wsm->getPreviousNodes();
-    return auxilaryRoute(wsm, path, routing);
-/*
-    if (wsm->getType() == MessageType::ROUTE_REQ)
-    {
-        long id = wsm->getRoute().front();
-        if (routing.find(id) != routing.end())
-        {
-            if (wsm->getHops() > routing[id].size())
-                return false;
-        }
-
-        routing[id] = wsm->getRoute();
-    }
-    
-    else if (wsm->getType() == MessageType::ROUTE_REPLY)
-    {
-        long id = wsm->getPreviousNodes().front();
-        if (routing.find(id) != routing.end())
-        {
-            if (wsm->getHops() > routing[id].size())
-                return false;
-        }
-
-        routing[id] = wsm->getPreviousNodes();
-    }
-
-    return true;*/
+    return auxilaryRoute(path, routing);
 }
 
-bool UnitHandler::auxilaryRoute(Message *wsm, std::vector<long> &path, routingDict &routing)
+bool UnitHandler::auxilaryRoute(pathVector &path, routingDict &routing)
 {   
     // Variables for map check
-    std::vector<long> returnPath;
+    pathVector returnPath;
     long id;
 
     // While the path still has nodes in it
@@ -690,29 +691,6 @@ bool UnitHandler::auxilaryRoute(Message *wsm, std::vector<long> &path, routingDi
             // If message path is worse than saved path, abort message
             if (returnPath.size() > it->second.size())
                 return false;
-            /*
-            if ((myId == 22 || myId == 124))
-            {   std::cout << "MessageType " << heh << endl;
-                std::cout << "Node " << myId << " Old path: { ";
-                for (auto j = it->second.begin(); j != it->second.end(); j++)
-                    std::cout<< *j << " ";
-                std::cout << "} New path: { ";
-                for (auto k = returnPath.begin(); k != returnPath.end(); k++)
-                    std::cout<< *k << " ";
-                std::cout << "} Source " << val << " Sender " << send << "\n";
-            }*/
-
-            if ((myId == 22 || myId == 124))
-            {
-                std::vector<long> debug = wsm->getRsuRoute();
-
-                std::cout << "Node " << myId;
-                std::cout << " Message path: { ";
-                for (auto k = debug.begin(); k != debug.end(); k++)
-                    std::cout << *k << " ";
-                
-                std::cout << "}\n";
-            }
         }
 
         routing[id] = returnPath;
@@ -726,6 +704,7 @@ bool UnitHandler::insertMessage(
     dataDeque &messages,
     dataDeque &candidates)
 {
+    // If there are messages, insert accordingly sorted by generated time
     if (!messages.empty())
     {
         simtime_t timestamp = wsm->getCreationTime();
@@ -750,6 +729,7 @@ bool UnitHandler::insertMessage(
         }
     }
 
+    // If you didn't find message in stored messages, check candidate vector
     if (!candidates.empty())
     {
         auto it = std::find_if(candidates.begin(), candidates.end(),
@@ -760,7 +740,7 @@ bool UnitHandler::insertMessage(
             return false;
     }
 
-    messages.push_front(MessageData(wsm));
+    messages.push_back(MessageData(wsm));
     return true;
 }
 
@@ -820,9 +800,10 @@ void UnitHandler::flushList(dataDeque &messages, dataDeque &candidates)
 
 void UnitHandler::thresholdControl()
 {
+    // Create threshold request message
     Message *req = new Message();
     populateWSM(req);
-
+    // Define request properties
     req->setState(CurrentState::CACHING);
     scheduleAt(simTime() + 15, req);
 }

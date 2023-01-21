@@ -66,7 +66,8 @@ packet Message extends BaseFrame1609_4
 
     // Message data
     string roadData;            // Information about road
-    int msgInfo = 0;                // Misc message info
+    int msgInfo = 0;            // Misc message info
+    simtime_t ackInfo;
 
     // Route variables
     Vector route;               // Route taken

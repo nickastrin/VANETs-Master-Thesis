@@ -143,7 +143,8 @@ namespace veins {
  * 
  *     // Message data
  *     string roadData;            // Information about road
- *     int msgInfo = 0;                // Misc message info
+ *     int msgInfo = 0;            // Misc message info
+ *     simtime_t ackInfo;
  * 
  *     // Route variables
  *     Vector route;               // Route taken
@@ -167,6 +168,7 @@ class VEINS_API Message : public ::veins::BaseFrame1609_4
     CentralityType centrality = static_cast<CentralityType>(-1);
     omnetpp::opp_string roadData;
     int msgInfo = 0;
+    omnetpp::simtime_t ackInfo = SIMTIME_ZERO;
     Vector route;
     Vector rsuRoute;
     Vector previousNodes;
@@ -216,6 +218,8 @@ class VEINS_API Message : public ::veins::BaseFrame1609_4
     virtual void setRoadData(const char * roadData);
     virtual int getMsgInfo() const;
     virtual void setMsgInfo(int msgInfo);
+    virtual omnetpp::simtime_t getAckInfo() const;
+    virtual void setAckInfo(omnetpp::simtime_t ackInfo);
     virtual const Vector& getRoute() const;
     virtual Vector& getRouteForUpdate() { return const_cast<Vector&>(const_cast<Message*>(this)->getRoute());}
     virtual void setRoute(const Vector& route);

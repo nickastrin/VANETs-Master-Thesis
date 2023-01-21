@@ -494,6 +494,7 @@ void Message::copy(const Message& other)
     this->centrality = other.centrality;
     this->roadData = other.roadData;
     this->msgInfo = other.msgInfo;
+    this->ackInfo = other.ackInfo;
     this->route = other.route;
     this->rsuRoute = other.rsuRoute;
     this->previousNodes = other.previousNodes;
@@ -514,6 +515,7 @@ void Message::parsimPack(omnetpp::cCommBuffer *b) const
     doParsimPacking(b,this->centrality);
     doParsimPacking(b,this->roadData);
     doParsimPacking(b,this->msgInfo);
+    doParsimPacking(b,this->ackInfo);
     doParsimPacking(b,this->route);
     doParsimPacking(b,this->rsuRoute);
     doParsimPacking(b,this->previousNodes);
@@ -534,6 +536,7 @@ void Message::parsimUnpack(omnetpp::cCommBuffer *b)
     doParsimUnpacking(b,this->centrality);
     doParsimUnpacking(b,this->roadData);
     doParsimUnpacking(b,this->msgInfo);
+    doParsimUnpacking(b,this->ackInfo);
     doParsimUnpacking(b,this->route);
     doParsimUnpacking(b,this->rsuRoute);
     doParsimUnpacking(b,this->previousNodes);
@@ -659,6 +662,16 @@ void Message::setMsgInfo(int msgInfo)
     this->msgInfo = msgInfo;
 }
 
+omnetpp::simtime_t Message::getAckInfo() const
+{
+    return this->ackInfo;
+}
+
+void Message::setAckInfo(omnetpp::simtime_t ackInfo)
+{
+    this->ackInfo = ackInfo;
+}
+
 const Vector& Message::getRoute() const
 {
     return this->route;
@@ -706,6 +719,7 @@ class MessageDescriptor : public omnetpp::cClassDescriptor
         FIELD_centrality,
         FIELD_roadData,
         FIELD_msgInfo,
+        FIELD_ackInfo,
         FIELD_route,
         FIELD_rsuRoute,
         FIELD_previousNodes,
@@ -771,7 +785,7 @@ const char *MessageDescriptor::getProperty(const char *propertyname) const
 int MessageDescriptor::getFieldCount() const
 {
     omnetpp::cClassDescriptor *basedesc = getBaseClassDescriptor();
-    return basedesc ? 15+basedesc->getFieldCount() : 15;
+    return basedesc ? 16+basedesc->getFieldCount() : 16;
 }
 
 unsigned int MessageDescriptor::getFieldTypeFlags(int field) const
@@ -795,11 +809,12 @@ unsigned int MessageDescriptor::getFieldTypeFlags(int field) const
         FD_ISEDITABLE,    // FIELD_centrality
         FD_ISEDITABLE,    // FIELD_roadData
         FD_ISEDITABLE,    // FIELD_msgInfo
+        0,    // FIELD_ackInfo
         FD_ISCOMPOUND,    // FIELD_route
         FD_ISCOMPOUND,    // FIELD_rsuRoute
         FD_ISCOMPOUND,    // FIELD_previousNodes
     };
-    return (field >= 0 && field < 15) ? fieldTypeFlags[field] : 0;
+    return (field >= 0 && field < 16) ? fieldTypeFlags[field] : 0;
 }
 
 const char *MessageDescriptor::getFieldName(int field) const
@@ -823,11 +838,12 @@ const char *MessageDescriptor::getFieldName(int field) const
         "centrality",
         "roadData",
         "msgInfo",
+        "ackInfo",
         "route",
         "rsuRoute",
         "previousNodes",
     };
-    return (field >= 0 && field < 15) ? fieldNames[field] : nullptr;
+    return (field >= 0 && field < 16) ? fieldNames[field] : nullptr;
 }
 
 int MessageDescriptor::findField(const char *fieldName) const
@@ -846,9 +862,10 @@ int MessageDescriptor::findField(const char *fieldName) const
     if (fieldName[0] == 'c' && strcmp(fieldName, "centrality") == 0) return base+9;
     if (fieldName[0] == 'r' && strcmp(fieldName, "roadData") == 0) return base+10;
     if (fieldName[0] == 'm' && strcmp(fieldName, "msgInfo") == 0) return base+11;
-    if (fieldName[0] == 'r' && strcmp(fieldName, "route") == 0) return base+12;
-    if (fieldName[0] == 'r' && strcmp(fieldName, "rsuRoute") == 0) return base+13;
-    if (fieldName[0] == 'p' && strcmp(fieldName, "previousNodes") == 0) return base+14;
+    if (fieldName[0] == 'a' && strcmp(fieldName, "ackInfo") == 0) return base+12;
+    if (fieldName[0] == 'r' && strcmp(fieldName, "route") == 0) return base+13;
+    if (fieldName[0] == 'r' && strcmp(fieldName, "rsuRoute") == 0) return base+14;
+    if (fieldName[0] == 'p' && strcmp(fieldName, "previousNodes") == 0) return base+15;
     return basedesc ? basedesc->findField(fieldName) : -1;
 }
 
@@ -873,11 +890,12 @@ const char *MessageDescriptor::getFieldTypeString(int field) const
         "CentralityType",    // FIELD_centrality
         "string",    // FIELD_roadData
         "int",    // FIELD_msgInfo
+        "omnetpp::simtime_t",    // FIELD_ackInfo
         "Vector",    // FIELD_route
         "Vector",    // FIELD_rsuRoute
         "Vector",    // FIELD_previousNodes
     };
-    return (field >= 0 && field < 15) ? fieldTypeStrings[field] : nullptr;
+    return (field >= 0 && field < 16) ? fieldTypeStrings[field] : nullptr;
 }
 
 const char **MessageDescriptor::getFieldPropertyNames(int field) const
@@ -977,6 +995,7 @@ std::string MessageDescriptor::getFieldValueAsString(void *object, int field, in
         case FIELD_centrality: return enum2string(pp->getCentrality(), "CentralityType");
         case FIELD_roadData: return oppstring2string(pp->getRoadData());
         case FIELD_msgInfo: return long2string(pp->getMsgInfo());
+        case FIELD_ackInfo: return simtime2string(pp->getAckInfo());
         case FIELD_route: {std::stringstream out; out << pp->getRoute(); return out.str();}
         case FIELD_rsuRoute: {std::stringstream out; out << pp->getRsuRoute(); return out.str();}
         case FIELD_previousNodes: {std::stringstream out; out << pp->getPreviousNodes(); return out.str();}
