@@ -69,66 +69,6 @@ public:
         SEND_BEACON_EVT,
         SEND_WSA_EVT
     };
-
-public:
-    // Struct for saving incoming messages
-    struct Tuple
-    {
-        long id;
-        long source;
-        long target;
-
-        simtime_t timestamp;
-        simtime_t lastUsed;
-        simtime_t received;
-
-        int hops;
-        int usedFrequency;
-        int centralityData;
-
-        int retries;
-
-        std::string roadData;
-        std::list<long> rsu;
-
-        messageType type;
-        selectedCentrality centrality;
-
-        Tuple(Message* msg)
-        {
-            id = msg->getSenderAddress();
-            source = msg->getSenderAddress();
-            target = msg->getTarget();
-                    
-            timestamp = msg->getCreationTime();
-            lastUsed = simTime();
-            received = simTime();
-
-            hops = msg->getHops();
-            usedFrequency = 1;
-            centralityData = msg->getCentralityData();
-
-            retries = 0;
-
-            roadData = msg->getRoadData();
-            rsu = msg->getRsuList();
-
-            type = msg->getType();
-            centrality = msg->getCentrality();
-        }
-
-        // Functions used to handle list sorting
-        static bool compareByLastUsed(const Tuple& a, const Tuple& b)
-        {
-            return a.lastUsed > b.lastUsed;
-        }
-
-        static bool compareByUsedFrequency(const Tuple& a, const Tuple& b)
-        {
-            return a.usedFrequency > b.usedFrequency;
-        }
-    };
-
 protected:
     /** @brief handle messages from below and calls the onWSM, onBSM, and onWSA functions accordingly */
     void handleLowerMsg(cMessage* msg) override;
