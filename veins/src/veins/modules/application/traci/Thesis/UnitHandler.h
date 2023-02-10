@@ -25,6 +25,12 @@ namespace veins
                 long source;
                 long dest;
 
+                std::string contentId;
+                std::string content;
+                int segments;
+                int segmentNumber;
+                bool multimedia;
+
                 // Message time variables
                 simtime_t timestamp;
                 simtime_t lastUsed;
@@ -35,9 +41,6 @@ namespace veins
 
                 MessageType type;
                 
-                std::string roadData;       // Variable for LFU policy
-                std::vector<long> rsu;      // Variable for betweenness
-
                 MessageData(Message *wsm)
                 {
                     id = wsm->getMsgId(); 
@@ -45,6 +48,12 @@ namespace veins
                     sender = wsm->getSenderAddress();
                     source = wsm->getSource();
                     dest = wsm->getDest();
+
+                    contentId = wsm->getContentId();
+                    content = wsm->getContent();
+                    segments = wsm->getSegments();
+                    segmentNumber = wsm->getSegmentNumber();
+                    multimedia = wsm->getMultimedia();
 
                     timestamp = wsm->getCreationTime();
                     lastUsed = simTime();
@@ -54,14 +63,12 @@ namespace veins
                     attempts = 0;           
 
                     type = wsm->getType();
-
-                    roadData = wsm->getRoadData();
                 }
 
                 // Auxilary functions used for the sort function
                 static bool sortFIFO(const MessageData &a, const MessageData &b)
                 {
-                    return a.receivedAt > b.receivedAt;
+                    return a.receivedAt < b.receivedAt;
                 }
 
                 static bool sortLRU(const MessageData &a, const MessageData &b)
@@ -80,155 +87,112 @@ namespace veins
                 }
             };
         
-            typedef std::vector<long> pathVector;
+            struct ContentWrapper
+            {
+                int segments;
+                int segmentNumber;
+                std::string content;
+                simtime_t timestamp;
+
+                ContentWrapper() {};
+                ContentWrapper(Message *wsm)
+                {
+                    segments = wsm->getSegments();
+                    segmentNumber = wsm->getSegmentNumber();
+                    content = wsm->getContent();
+                    timestamp = wsm->getCreationTime();
+                }
+            };
+
+            typedef std::deque<long> pathDeque;
             typedef std::deque<std::string> roadsDeque;
             typedef std::deque<MessageData> dataDeque;
-            typedef std::map<long, std::vector<long>> routingDict;
+            typedef std::map<long, std::deque<long>> routingDict;
+
+            typedef std::map<std::string, ContentWrapper> storageDict;
         protected:
-            /** @brief Handler for self messages */
             void handleSelfMsg(cMessage *msg) override;
-
-            /** @brief Self message for initialization*/
-            virtual void initializingMsg(Message *wsm){};
-
-            /** @brief Handler for sending messages */
+            virtual void initializingMsg() {};
             void sendingMsg(Message *wsm);
+            virtual void requestingMsg() {};
+            virtual void collectingMsg(Message *wsm);
+            void repeatingMsg(Message *wsm);
+            void cachingMsg(Message *wsm, simtime_t limit);
+            virtual void writingMsg() {};
+            virtual void extractingMsg() {};
+            
+            virtual void onWSM(BaseFrame1609_4 *frame) override;
 
-            /** @brief Self message to request centralities */
-            void requestingMsg(Message *wsm);
+            virtual void onOriginInitReq(Message *wsm) {};
+            virtual void onOriginInitReply(Message *wsm) {};
+            virtual void onRsuInitReq(Message *wsm) {};
+            virtual void onRsuInitReply(Message *wsm) {};
 
-            /**
-             * @brief Calculates centralities from collected messages
-             * 
-             * @param wsm message received
-             * @param routing routing table
-             * @param acks pending acknowledgements
-             */
-            void collectingMsg(
-                Message *wsm,
-                routingDict &routing,
-                dataDeque &acks
-                );
+            virtual void onOriginCentralityReq(Message *wsm) {};
+            virtual void onOriginCentralityReply(Message *wsm) {};
 
-            /** @brief Repeats message if acknowledgement hasn't been received */
-            void repeatingMsg(Message *wsm, dataDeque &acks);
+            virtual void onPullReq(Message *wsm) {};
+            virtual void onPullReply(Message *wsm) {};
 
-             /**
-             * @brief Handler for message transfer to candidate vector
-             * 
-             * @param limit time threshold to determine information validity
-             */
-            void cachingMsg(    
-                Message* wsm,
-                simtime_t limit, 
-                dataDeque &messages, 
-                dataDeque &candidates
-                );
+            virtual void onPushML(Message *wsm) {};
+            virtual void onPushCentrality(Message *wsm) {};
+            virtual void onPushContent(Message *wsm);
 
-            /** @brief Function called when a BaseFrame1609_4 is received */
-            void onWSM(BaseFrame1609_4* frame) override;
-
-            /** @brief On broadcast handler */
-            virtual void onBroadcast(Message *wsm, roadsDeque &roads){};
-
-            /** @brief On request handler
-             * 
-             *  @param wsm message received
-             *  @param roads blocked roads
-             *  @param acks pending acknowledgements
-            */
-            void onRequest(
-                Message *wsm,
-                roadsDeque &roads,
-                dataDeque &acks
-                );
-
-            /** @brief On reply handler*/
+            virtual void onBroadcast(Message *wsm) {};
+            virtual void onRequest(Message *wsm) {};
             void onReply(Message *wsm);
 
-            /** @brief Handler for route request */
-            void onRouteReq(
-                Message *wsm, 
-                routingDict &routing,
-                dataDeque &acks
-                );
+            void onRouteReq(Message *wsm);
+            void onRouteReply(Message *wsm);
 
-            /** @brief Handler for route replies */
-            void onRouteReply(Message *wsm, routingDict &routing);
+            void onCentralityReq(Message *wsm);
+            void onDegreeReq(Message *wsm);
+            void onBetweennessReq(Message *wsm);
 
-            /** @brief Handler for centrality requests */
-            void onCentralityReq(
-                Message *wsm, 
-                routingDict &routing,
-                dataDeque &acks);
-
-            /** @brief Degree request handler */
-            void onDegreeReq(
-                Message *wsm, 
-                routingDict &routing, 
-                dataDeque &acks);
-
-            /** @brief Betweenness request handler */
-            void onBetweennessReq(Message *wsm, dataDeque &acks);
-
-            /** @brief Handler for centrality replies */
             void onCentralityReply(Message *wsm);
+            virtual void onDegreeReply(Message *wsm) {};
+            virtual void onBetweennessReply(Message *wsm) {};
 
-            /** @brief Degree reply handler */
-            virtual void onDegreeReply(Message *wsm){};
+            void onAcknowledgement(Message *wsm);
 
-            /** @brief Betweenness reply handler */
-            virtual void onBetweennessReply(Message *wsm){};
-
-            /** @brief Acknowledgement handler */
-            void onAcknowledgement(Message *wsm, dataDeque &acks);
-
-            /** @brief Auxilary routing functions */
-            bool inRoute(pathVector route);
-
-            /** @brief Handler for accepting incoming messages */
-            bool receiveMessage(
-                Message *wsm,
-                dataDeque &messages,
-                dataDeque &candidates,
-                routingDict &routing
-                );
-
-            /** @brief Updates routing table with new shortest paths*/
-            bool routingTableUpdate(Message *wsm, routingDict &routing);
-
-            /** @brief Auxilary function for routing table update*/
-            bool auxilaryRoute(pathVector &path, routingDict &routing);
-
-            /** @brief Handler for insertion of accepted messages */
-            bool insertMessage(
-                Message *wsm, 
-                dataDeque &messages,
-                dataDeque &candidates
-                );
+            bool receiveMessage(Message *wsm, routingDict &routing);
+            bool routingTableUpdate(pathDeque path, routingDict &routing);
+            bool insertMessage(Message *wsm);
+            bool messageMatch(Message *wsm, MessageData data);
+            bool insertSegmented(Message *wsm);
+            bool contentMatch(Message *wsm, MessageData data);
+            void sendAcknowledgement(Message *wsm);
+            void flushList();
             
-            /** @brief Handler for flushing storage at max capacity */
-            void flushList(dataDeque &messages, dataDeque &candidates);
-
-            /** @brief Creates a request for message transfer to candidate vector */
             void thresholdControl();
 
+            bool inRoute(pathDeque route);
+            void createRouteReq(MessageType type, int ttl, bool origin = false, bool update = true);
+            void handleRouteReq(Message *wsm, MessageType type);
+            void handleRouteTraversal(Message *wsm, bool forward = false);
+
+            bool contentSearch(Message *wsm, storageDict storage, bool origin = false);
+            std::string extractContent(Message *wsm);
+
+            void debugPrint(routingDict routing);
         protected:
             // Centrality metrics variables 
-            int degree;
-            int closeness;
-            int betweenness;
+            float degree;
+            float closeness;
+            float betweenness;
 
             // Variables for message transmission
             double signalRange;
-            int ttl;
+            int maxHops;
 
             // Variables for caching policy
             int capacity;
             int flushed;
             simtime_t threshold;
 
-            pathVector requestedBy;           // Vector that stores RSU IDs that requested betweenness
+            simtime_t lastUpdated;
+
+            pathDeque requestedBy;           // Vector that stores RSU IDs that requested betweenness
 
             // Variables for message storage
             dataDeque storedMessages;         // Messages stored in cache
@@ -237,6 +201,7 @@ namespace veins
 
             // Variables for the routing table
             routingDict routingTable;
+            routingDict rsuRouting;
             simtime_t routingLastUpdated;
             simtime_t flushingInterval;
 
@@ -245,9 +210,13 @@ namespace veins
             roadsDeque roadStatus;                // Stores roads with accidents
 
             // Variables for unit function
-            CachingPolicy policy;
+            CachingPolicy caching;
             OriginPolicy origin;
             UnitType unit;
 
+            storageDict multimediaData;
+            storageDict roadData;
+
+            dataDeque segmentedMessages;
     };
 }

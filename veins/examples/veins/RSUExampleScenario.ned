@@ -21,12 +21,18 @@
 //
 
 import org.car2x.veins.nodes.RSU;
+import org.car2x.veins.nodes.Origin;
 import org.car2x.veins.nodes.Scenario;
 
 network RSUExampleScenario extends Scenario
 {
     submodules:
-        rsu[1]: RSU {
+        origin[1]: Origin 
+        {   
+            @display("p=150,140;i=veins/sign/yellowdiamond;is=vs");
+        }
+        rsu[2]: RSU 
+        {
             @display("p=150,140;i=veins/sign/yellowdiamond;is=vs");
         }
 }

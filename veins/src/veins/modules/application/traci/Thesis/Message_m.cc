@@ -173,15 +173,15 @@ toVoidPtr(T* t)
 
 }
 
-class VectorDescriptor : public omnetpp::cClassDescriptor
+class DequeDescriptor : public omnetpp::cClassDescriptor
 {
   private:
     mutable const char **propertynames;
     enum FieldConstants {
     };
   public:
-    VectorDescriptor();
-    virtual ~VectorDescriptor();
+    DequeDescriptor();
+    virtual ~DequeDescriptor();
 
     virtual bool doesSupport(omnetpp::cObject *obj) const override;
     virtual const char **getPropertyNames() const override;
@@ -203,24 +203,24 @@ class VectorDescriptor : public omnetpp::cClassDescriptor
     virtual void *getFieldStructValuePointer(void *object, int field, int i) const override;
 };
 
-Register_ClassDescriptor(VectorDescriptor)
+Register_ClassDescriptor(DequeDescriptor)
 
-VectorDescriptor::VectorDescriptor() : omnetpp::cClassDescriptor(omnetpp::opp_typename(typeid(Vector)), "")
+DequeDescriptor::DequeDescriptor() : omnetpp::cClassDescriptor(omnetpp::opp_typename(typeid(Deque)), "")
 {
     propertynames = nullptr;
 }
 
-VectorDescriptor::~VectorDescriptor()
+DequeDescriptor::~DequeDescriptor()
 {
     delete[] propertynames;
 }
 
-bool VectorDescriptor::doesSupport(omnetpp::cObject *obj) const
+bool DequeDescriptor::doesSupport(omnetpp::cObject *obj) const
 {
-    return dynamic_cast<Vector *>(obj)!=nullptr;
+    return dynamic_cast<Deque *>(obj)!=nullptr;
 }
 
-const char **VectorDescriptor::getPropertyNames() const
+const char **DequeDescriptor::getPropertyNames() const
 {
     if (!propertynames) {
         static const char *names[] = { "existingClass",  nullptr };
@@ -231,20 +231,20 @@ const char **VectorDescriptor::getPropertyNames() const
     return propertynames;
 }
 
-const char *VectorDescriptor::getProperty(const char *propertyname) const
+const char *DequeDescriptor::getProperty(const char *propertyname) const
 {
     if (!strcmp(propertyname, "existingClass")) return "";
     omnetpp::cClassDescriptor *basedesc = getBaseClassDescriptor();
     return basedesc ? basedesc->getProperty(propertyname) : nullptr;
 }
 
-int VectorDescriptor::getFieldCount() const
+int DequeDescriptor::getFieldCount() const
 {
     omnetpp::cClassDescriptor *basedesc = getBaseClassDescriptor();
     return basedesc ? 0+basedesc->getFieldCount() : 0;
 }
 
-unsigned int VectorDescriptor::getFieldTypeFlags(int field) const
+unsigned int DequeDescriptor::getFieldTypeFlags(int field) const
 {
     omnetpp::cClassDescriptor *basedesc = getBaseClassDescriptor();
     if (basedesc) {
@@ -255,7 +255,7 @@ unsigned int VectorDescriptor::getFieldTypeFlags(int field) const
     return 0;
 }
 
-const char *VectorDescriptor::getFieldName(int field) const
+const char *DequeDescriptor::getFieldName(int field) const
 {
     omnetpp::cClassDescriptor *basedesc = getBaseClassDescriptor();
     if (basedesc) {
@@ -266,13 +266,13 @@ const char *VectorDescriptor::getFieldName(int field) const
     return nullptr;
 }
 
-int VectorDescriptor::findField(const char *fieldName) const
+int DequeDescriptor::findField(const char *fieldName) const
 {
     omnetpp::cClassDescriptor *basedesc = getBaseClassDescriptor();
     return basedesc ? basedesc->findField(fieldName) : -1;
 }
 
-const char *VectorDescriptor::getFieldTypeString(int field) const
+const char *DequeDescriptor::getFieldTypeString(int field) const
 {
     omnetpp::cClassDescriptor *basedesc = getBaseClassDescriptor();
     if (basedesc) {
@@ -283,7 +283,7 @@ const char *VectorDescriptor::getFieldTypeString(int field) const
     return nullptr;
 }
 
-const char **VectorDescriptor::getFieldPropertyNames(int field) const
+const char **DequeDescriptor::getFieldPropertyNames(int field) const
 {
     omnetpp::cClassDescriptor *basedesc = getBaseClassDescriptor();
     if (basedesc) {
@@ -296,7 +296,7 @@ const char **VectorDescriptor::getFieldPropertyNames(int field) const
     }
 }
 
-const char *VectorDescriptor::getFieldProperty(int field, const char *propertyname) const
+const char *DequeDescriptor::getFieldProperty(int field, const char *propertyname) const
 {
     omnetpp::cClassDescriptor *basedesc = getBaseClassDescriptor();
     if (basedesc) {
@@ -309,7 +309,7 @@ const char *VectorDescriptor::getFieldProperty(int field, const char *propertyna
     }
 }
 
-int VectorDescriptor::getFieldArraySize(void *object, int field) const
+int DequeDescriptor::getFieldArraySize(void *object, int field) const
 {
     omnetpp::cClassDescriptor *basedesc = getBaseClassDescriptor();
     if (basedesc) {
@@ -317,13 +317,13 @@ int VectorDescriptor::getFieldArraySize(void *object, int field) const
             return basedesc->getFieldArraySize(object, field);
         field -= basedesc->getFieldCount();
     }
-    Vector *pp = (Vector *)object; (void)pp;
+    Deque *pp = (Deque *)object; (void)pp;
     switch (field) {
         default: return 0;
     }
 }
 
-const char *VectorDescriptor::getFieldDynamicTypeString(void *object, int field, int i) const
+const char *DequeDescriptor::getFieldDynamicTypeString(void *object, int field, int i) const
 {
     omnetpp::cClassDescriptor *basedesc = getBaseClassDescriptor();
     if (basedesc) {
@@ -331,13 +331,13 @@ const char *VectorDescriptor::getFieldDynamicTypeString(void *object, int field,
             return basedesc->getFieldDynamicTypeString(object,field,i);
         field -= basedesc->getFieldCount();
     }
-    Vector *pp = (Vector *)object; (void)pp;
+    Deque *pp = (Deque *)object; (void)pp;
     switch (field) {
         default: return nullptr;
     }
 }
 
-std::string VectorDescriptor::getFieldValueAsString(void *object, int field, int i) const
+std::string DequeDescriptor::getFieldValueAsString(void *object, int field, int i) const
 {
     omnetpp::cClassDescriptor *basedesc = getBaseClassDescriptor();
     if (basedesc) {
@@ -345,13 +345,13 @@ std::string VectorDescriptor::getFieldValueAsString(void *object, int field, int
             return basedesc->getFieldValueAsString(object,field,i);
         field -= basedesc->getFieldCount();
     }
-    Vector *pp = (Vector *)object; (void)pp;
+    Deque *pp = (Deque *)object; (void)pp;
     switch (field) {
         default: return "";
     }
 }
 
-bool VectorDescriptor::setFieldValueAsString(void *object, int field, int i, const char *value) const
+bool DequeDescriptor::setFieldValueAsString(void *object, int field, int i, const char *value) const
 {
     omnetpp::cClassDescriptor *basedesc = getBaseClassDescriptor();
     if (basedesc) {
@@ -359,13 +359,13 @@ bool VectorDescriptor::setFieldValueAsString(void *object, int field, int i, con
             return basedesc->setFieldValueAsString(object,field,i,value);
         field -= basedesc->getFieldCount();
     }
-    Vector *pp = (Vector *)object; (void)pp;
+    Deque *pp = (Deque *)object; (void)pp;
     switch (field) {
         default: return false;
     }
 }
 
-const char *VectorDescriptor::getFieldStructName(int field) const
+const char *DequeDescriptor::getFieldStructName(int field) const
 {
     omnetpp::cClassDescriptor *basedesc = getBaseClassDescriptor();
     if (basedesc) {
@@ -376,7 +376,7 @@ const char *VectorDescriptor::getFieldStructName(int field) const
     return nullptr;
 }
 
-void *VectorDescriptor::getFieldStructValuePointer(void *object, int field, int i) const
+void *DequeDescriptor::getFieldStructValuePointer(void *object, int field, int i) const
 {
     omnetpp::cClassDescriptor *basedesc = getBaseClassDescriptor();
     if (basedesc) {
@@ -384,7 +384,7 @@ void *VectorDescriptor::getFieldStructValuePointer(void *object, int field, int 
             return basedesc->getFieldStructValuePointer(object, field, i);
         field -= basedesc->getFieldCount();
     }
-    Vector *pp = (Vector *)object; (void)pp;
+    Deque *pp = (Deque *)object; (void)pp;
     switch (field) {
         default: return nullptr;
     }
@@ -393,7 +393,6 @@ void *VectorDescriptor::getFieldStructValuePointer(void *object, int field, int 
 EXECUTE_ON_STARTUP(
     omnetpp::cEnum *e = omnetpp::cEnum::find("MessageType");
     if (!e) omnetpp::enums.getInstance()->add(e = new omnetpp::cEnum("MessageType"));
-    e->insert(HELLO, "HELLO");
     e->insert(BROADCAST, "BROADCAST");
     e->insert(REQUEST, "REQUEST");
     e->insert(REPLY, "REPLY");
@@ -402,6 +401,17 @@ EXECUTE_ON_STARTUP(
     e->insert(CENTRALITY_REQ, "CENTRALITY_REQ");
     e->insert(CENTRALITY_REPLY, "CENTRALITY_REPLY");
     e->insert(ACKNOWLEDGEMENT, "ACKNOWLEDGEMENT");
+    e->insert(ORIGIN_INIT_REQ, "ORIGIN_INIT_REQ");
+    e->insert(ORIGIN_INIT_REPLY, "ORIGIN_INIT_REPLY");
+    e->insert(RSU_INIT_REQ, "RSU_INIT_REQ");
+    e->insert(RSU_INIT_REPLY, "RSU_INIT_REPLY");
+    e->insert(PULL_REQ, "PULL_REQ");
+    e->insert(PULL_REPLY, "PULL_REPLY");
+    e->insert(PUSH_CENTRALITY, "PUSH_CENTRALITY");
+    e->insert(PUSH_ML, "PUSH_ML");
+    e->insert(PUSH_CONTENT, "PUSH_CONTENT");
+    e->insert(ORIGIN_CENTRALITY_REQ, "ORIGIN_CENTRALITY_REQ");
+    e->insert(ORIGIN_CENTRALITY_REPLY, "ORIGIN_CENTRALITY_REPLY");
 )
 
 EXECUTE_ON_STARTUP(
@@ -413,6 +423,8 @@ EXECUTE_ON_STARTUP(
     e->insert(REPEATING, "REPEATING");
     e->insert(COLLECTING, "COLLECTING");
     e->insert(CACHING, "CACHING");
+    e->insert(WRITING, "WRITING");
+    e->insert(EXTRACTING, "EXTRACTING");
 )
 
 EXECUTE_ON_STARTUP(
@@ -484,20 +496,26 @@ void Message::copy(const Message& other)
 {
     this->msgId = other.msgId;
     this->senderAddress = other.senderAddress;
-    this->senderPosition = other.senderPosition;
+    this->recipient = other.recipient;
     this->source = other.source;
     this->dest = other.dest;
-    this->ttl = other.ttl;
-    this->hops = other.hops;
+    this->senderPosition = other.senderPosition;
     this->type = other.type;
     this->state = other.state;
     this->centrality = other.centrality;
-    this->roadData = other.roadData;
+    this->originMessage = other.originMessage;
+    this->updatePaths = other.updatePaths;
+    this->hops = other.hops;
+    this->maxHops = other.maxHops;
     this->msgInfo = other.msgInfo;
     this->ackInfo = other.ackInfo;
     this->route = other.route;
-    this->rsuRoute = other.rsuRoute;
     this->previousNodes = other.previousNodes;
+    this->contentId = other.contentId;
+    this->content = other.content;
+    this->segments = other.segments;
+    this->segmentNumber = other.segmentNumber;
+    this->multimedia = other.multimedia;
 }
 
 void Message::parsimPack(omnetpp::cCommBuffer *b) const
@@ -505,20 +523,26 @@ void Message::parsimPack(omnetpp::cCommBuffer *b) const
     ::veins::BaseFrame1609_4::parsimPack(b);
     doParsimPacking(b,this->msgId);
     doParsimPacking(b,this->senderAddress);
-    doParsimPacking(b,this->senderPosition);
+    doParsimPacking(b,this->recipient);
     doParsimPacking(b,this->source);
     doParsimPacking(b,this->dest);
-    doParsimPacking(b,this->ttl);
-    doParsimPacking(b,this->hops);
+    doParsimPacking(b,this->senderPosition);
     doParsimPacking(b,this->type);
     doParsimPacking(b,this->state);
     doParsimPacking(b,this->centrality);
-    doParsimPacking(b,this->roadData);
+    doParsimPacking(b,this->originMessage);
+    doParsimPacking(b,this->updatePaths);
+    doParsimPacking(b,this->hops);
+    doParsimPacking(b,this->maxHops);
     doParsimPacking(b,this->msgInfo);
     doParsimPacking(b,this->ackInfo);
     doParsimPacking(b,this->route);
-    doParsimPacking(b,this->rsuRoute);
     doParsimPacking(b,this->previousNodes);
+    doParsimPacking(b,this->contentId);
+    doParsimPacking(b,this->content);
+    doParsimPacking(b,this->segments);
+    doParsimPacking(b,this->segmentNumber);
+    doParsimPacking(b,this->multimedia);
 }
 
 void Message::parsimUnpack(omnetpp::cCommBuffer *b)
@@ -526,28 +550,34 @@ void Message::parsimUnpack(omnetpp::cCommBuffer *b)
     ::veins::BaseFrame1609_4::parsimUnpack(b);
     doParsimUnpacking(b,this->msgId);
     doParsimUnpacking(b,this->senderAddress);
-    doParsimUnpacking(b,this->senderPosition);
+    doParsimUnpacking(b,this->recipient);
     doParsimUnpacking(b,this->source);
     doParsimUnpacking(b,this->dest);
-    doParsimUnpacking(b,this->ttl);
-    doParsimUnpacking(b,this->hops);
+    doParsimUnpacking(b,this->senderPosition);
     doParsimUnpacking(b,this->type);
     doParsimUnpacking(b,this->state);
     doParsimUnpacking(b,this->centrality);
-    doParsimUnpacking(b,this->roadData);
+    doParsimUnpacking(b,this->originMessage);
+    doParsimUnpacking(b,this->updatePaths);
+    doParsimUnpacking(b,this->hops);
+    doParsimUnpacking(b,this->maxHops);
     doParsimUnpacking(b,this->msgInfo);
     doParsimUnpacking(b,this->ackInfo);
     doParsimUnpacking(b,this->route);
-    doParsimUnpacking(b,this->rsuRoute);
     doParsimUnpacking(b,this->previousNodes);
+    doParsimUnpacking(b,this->contentId);
+    doParsimUnpacking(b,this->content);
+    doParsimUnpacking(b,this->segments);
+    doParsimUnpacking(b,this->segmentNumber);
+    doParsimUnpacking(b,this->multimedia);
 }
 
-long Message::getMsgId() const
+const LAddress::L2Type& Message::getMsgId() const
 {
     return this->msgId;
 }
 
-void Message::setMsgId(long msgId)
+void Message::setMsgId(const LAddress::L2Type& msgId)
 {
     this->msgId = msgId;
 }
@@ -562,14 +592,14 @@ void Message::setSenderAddress(const LAddress::L2Type& senderAddress)
     this->senderAddress = senderAddress;
 }
 
-const Coord& Message::getSenderPosition() const
+const LAddress::L2Type& Message::getRecipient() const
 {
-    return this->senderPosition;
+    return this->recipient;
 }
 
-void Message::setSenderPosition(const Coord& senderPosition)
+void Message::setRecipient(const LAddress::L2Type& recipient)
 {
-    this->senderPosition = senderPosition;
+    this->recipient = recipient;
 }
 
 const LAddress::L2Type& Message::getSource() const
@@ -592,24 +622,14 @@ void Message::setDest(const LAddress::L2Type& dest)
     this->dest = dest;
 }
 
-int Message::getTtl() const
+const Coord& Message::getSenderPosition() const
 {
-    return this->ttl;
+    return this->senderPosition;
 }
 
-void Message::setTtl(int ttl)
+void Message::setSenderPosition(const Coord& senderPosition)
 {
-    this->ttl = ttl;
-}
-
-int Message::getHops() const
-{
-    return this->hops;
-}
-
-void Message::setHops(int hops)
-{
-    this->hops = hops;
+    this->senderPosition = senderPosition;
 }
 
 MessageType Message::getType() const
@@ -642,22 +662,52 @@ void Message::setCentrality(CentralityType centrality)
     this->centrality = centrality;
 }
 
-const char * Message::getRoadData() const
+bool Message::getOriginMessage() const
 {
-    return this->roadData.c_str();
+    return this->originMessage;
 }
 
-void Message::setRoadData(const char * roadData)
+void Message::setOriginMessage(bool originMessage)
 {
-    this->roadData = roadData;
+    this->originMessage = originMessage;
 }
 
-int Message::getMsgInfo() const
+bool Message::getUpdatePaths() const
+{
+    return this->updatePaths;
+}
+
+void Message::setUpdatePaths(bool updatePaths)
+{
+    this->updatePaths = updatePaths;
+}
+
+int Message::getHops() const
+{
+    return this->hops;
+}
+
+void Message::setHops(int hops)
+{
+    this->hops = hops;
+}
+
+int Message::getMaxHops() const
+{
+    return this->maxHops;
+}
+
+void Message::setMaxHops(int maxHops)
+{
+    this->maxHops = maxHops;
+}
+
+float Message::getMsgInfo() const
 {
     return this->msgInfo;
 }
 
-void Message::setMsgInfo(int msgInfo)
+void Message::setMsgInfo(float msgInfo)
 {
     this->msgInfo = msgInfo;
 }
@@ -672,34 +722,74 @@ void Message::setAckInfo(omnetpp::simtime_t ackInfo)
     this->ackInfo = ackInfo;
 }
 
-const Vector& Message::getRoute() const
+const Deque& Message::getRoute() const
 {
     return this->route;
 }
 
-void Message::setRoute(const Vector& route)
+void Message::setRoute(const Deque& route)
 {
     this->route = route;
 }
 
-const Vector& Message::getRsuRoute() const
-{
-    return this->rsuRoute;
-}
-
-void Message::setRsuRoute(const Vector& rsuRoute)
-{
-    this->rsuRoute = rsuRoute;
-}
-
-const Vector& Message::getPreviousNodes() const
+const Deque& Message::getPreviousNodes() const
 {
     return this->previousNodes;
 }
 
-void Message::setPreviousNodes(const Vector& previousNodes)
+void Message::setPreviousNodes(const Deque& previousNodes)
 {
     this->previousNodes = previousNodes;
+}
+
+const char * Message::getContentId() const
+{
+    return this->contentId.c_str();
+}
+
+void Message::setContentId(const char * contentId)
+{
+    this->contentId = contentId;
+}
+
+const char * Message::getContent() const
+{
+    return this->content.c_str();
+}
+
+void Message::setContent(const char * content)
+{
+    this->content = content;
+}
+
+int Message::getSegments() const
+{
+    return this->segments;
+}
+
+void Message::setSegments(int segments)
+{
+    this->segments = segments;
+}
+
+int Message::getSegmentNumber() const
+{
+    return this->segmentNumber;
+}
+
+void Message::setSegmentNumber(int segmentNumber)
+{
+    this->segmentNumber = segmentNumber;
+}
+
+bool Message::getMultimedia() const
+{
+    return this->multimedia;
+}
+
+void Message::setMultimedia(bool multimedia)
+{
+    this->multimedia = multimedia;
 }
 
 class MessageDescriptor : public omnetpp::cClassDescriptor
@@ -709,20 +799,26 @@ class MessageDescriptor : public omnetpp::cClassDescriptor
     enum FieldConstants {
         FIELD_msgId,
         FIELD_senderAddress,
-        FIELD_senderPosition,
+        FIELD_recipient,
         FIELD_source,
         FIELD_dest,
-        FIELD_ttl,
-        FIELD_hops,
+        FIELD_senderPosition,
         FIELD_type,
         FIELD_state,
         FIELD_centrality,
-        FIELD_roadData,
+        FIELD_originMessage,
+        FIELD_updatePaths,
+        FIELD_hops,
+        FIELD_maxHops,
         FIELD_msgInfo,
         FIELD_ackInfo,
         FIELD_route,
-        FIELD_rsuRoute,
         FIELD_previousNodes,
+        FIELD_contentId,
+        FIELD_content,
+        FIELD_segments,
+        FIELD_segmentNumber,
+        FIELD_multimedia,
     };
   public:
     MessageDescriptor();
@@ -785,7 +881,7 @@ const char *MessageDescriptor::getProperty(const char *propertyname) const
 int MessageDescriptor::getFieldCount() const
 {
     omnetpp::cClassDescriptor *basedesc = getBaseClassDescriptor();
-    return basedesc ? 16+basedesc->getFieldCount() : 16;
+    return basedesc ? 22+basedesc->getFieldCount() : 22;
 }
 
 unsigned int MessageDescriptor::getFieldTypeFlags(int field) const
@@ -797,24 +893,30 @@ unsigned int MessageDescriptor::getFieldTypeFlags(int field) const
         field -= basedesc->getFieldCount();
     }
     static unsigned int fieldTypeFlags[] = {
-        FD_ISEDITABLE,    // FIELD_msgId
+        0,    // FIELD_msgId
         0,    // FIELD_senderAddress
-        0,    // FIELD_senderPosition
+        0,    // FIELD_recipient
         0,    // FIELD_source
         0,    // FIELD_dest
-        FD_ISEDITABLE,    // FIELD_ttl
-        FD_ISEDITABLE,    // FIELD_hops
+        0,    // FIELD_senderPosition
         FD_ISEDITABLE,    // FIELD_type
         FD_ISEDITABLE,    // FIELD_state
         FD_ISEDITABLE,    // FIELD_centrality
-        FD_ISEDITABLE,    // FIELD_roadData
+        FD_ISEDITABLE,    // FIELD_originMessage
+        FD_ISEDITABLE,    // FIELD_updatePaths
+        FD_ISEDITABLE,    // FIELD_hops
+        FD_ISEDITABLE,    // FIELD_maxHops
         FD_ISEDITABLE,    // FIELD_msgInfo
         0,    // FIELD_ackInfo
         FD_ISCOMPOUND,    // FIELD_route
-        FD_ISCOMPOUND,    // FIELD_rsuRoute
         FD_ISCOMPOUND,    // FIELD_previousNodes
+        FD_ISEDITABLE,    // FIELD_contentId
+        FD_ISEDITABLE,    // FIELD_content
+        FD_ISEDITABLE,    // FIELD_segments
+        FD_ISEDITABLE,    // FIELD_segmentNumber
+        FD_ISEDITABLE,    // FIELD_multimedia
     };
-    return (field >= 0 && field < 16) ? fieldTypeFlags[field] : 0;
+    return (field >= 0 && field < 22) ? fieldTypeFlags[field] : 0;
 }
 
 const char *MessageDescriptor::getFieldName(int field) const
@@ -828,22 +930,28 @@ const char *MessageDescriptor::getFieldName(int field) const
     static const char *fieldNames[] = {
         "msgId",
         "senderAddress",
-        "senderPosition",
+        "recipient",
         "source",
         "dest",
-        "ttl",
-        "hops",
+        "senderPosition",
         "type",
         "state",
         "centrality",
-        "roadData",
+        "originMessage",
+        "updatePaths",
+        "hops",
+        "maxHops",
         "msgInfo",
         "ackInfo",
         "route",
-        "rsuRoute",
         "previousNodes",
+        "contentId",
+        "content",
+        "segments",
+        "segmentNumber",
+        "multimedia",
     };
-    return (field >= 0 && field < 16) ? fieldNames[field] : nullptr;
+    return (field >= 0 && field < 22) ? fieldNames[field] : nullptr;
 }
 
 int MessageDescriptor::findField(const char *fieldName) const
@@ -852,20 +960,26 @@ int MessageDescriptor::findField(const char *fieldName) const
     int base = basedesc ? basedesc->getFieldCount() : 0;
     if (fieldName[0] == 'm' && strcmp(fieldName, "msgId") == 0) return base+0;
     if (fieldName[0] == 's' && strcmp(fieldName, "senderAddress") == 0) return base+1;
-    if (fieldName[0] == 's' && strcmp(fieldName, "senderPosition") == 0) return base+2;
+    if (fieldName[0] == 'r' && strcmp(fieldName, "recipient") == 0) return base+2;
     if (fieldName[0] == 's' && strcmp(fieldName, "source") == 0) return base+3;
     if (fieldName[0] == 'd' && strcmp(fieldName, "dest") == 0) return base+4;
-    if (fieldName[0] == 't' && strcmp(fieldName, "ttl") == 0) return base+5;
-    if (fieldName[0] == 'h' && strcmp(fieldName, "hops") == 0) return base+6;
-    if (fieldName[0] == 't' && strcmp(fieldName, "type") == 0) return base+7;
-    if (fieldName[0] == 's' && strcmp(fieldName, "state") == 0) return base+8;
-    if (fieldName[0] == 'c' && strcmp(fieldName, "centrality") == 0) return base+9;
-    if (fieldName[0] == 'r' && strcmp(fieldName, "roadData") == 0) return base+10;
-    if (fieldName[0] == 'm' && strcmp(fieldName, "msgInfo") == 0) return base+11;
-    if (fieldName[0] == 'a' && strcmp(fieldName, "ackInfo") == 0) return base+12;
-    if (fieldName[0] == 'r' && strcmp(fieldName, "route") == 0) return base+13;
-    if (fieldName[0] == 'r' && strcmp(fieldName, "rsuRoute") == 0) return base+14;
-    if (fieldName[0] == 'p' && strcmp(fieldName, "previousNodes") == 0) return base+15;
+    if (fieldName[0] == 's' && strcmp(fieldName, "senderPosition") == 0) return base+5;
+    if (fieldName[0] == 't' && strcmp(fieldName, "type") == 0) return base+6;
+    if (fieldName[0] == 's' && strcmp(fieldName, "state") == 0) return base+7;
+    if (fieldName[0] == 'c' && strcmp(fieldName, "centrality") == 0) return base+8;
+    if (fieldName[0] == 'o' && strcmp(fieldName, "originMessage") == 0) return base+9;
+    if (fieldName[0] == 'u' && strcmp(fieldName, "updatePaths") == 0) return base+10;
+    if (fieldName[0] == 'h' && strcmp(fieldName, "hops") == 0) return base+11;
+    if (fieldName[0] == 'm' && strcmp(fieldName, "maxHops") == 0) return base+12;
+    if (fieldName[0] == 'm' && strcmp(fieldName, "msgInfo") == 0) return base+13;
+    if (fieldName[0] == 'a' && strcmp(fieldName, "ackInfo") == 0) return base+14;
+    if (fieldName[0] == 'r' && strcmp(fieldName, "route") == 0) return base+15;
+    if (fieldName[0] == 'p' && strcmp(fieldName, "previousNodes") == 0) return base+16;
+    if (fieldName[0] == 'c' && strcmp(fieldName, "contentId") == 0) return base+17;
+    if (fieldName[0] == 'c' && strcmp(fieldName, "content") == 0) return base+18;
+    if (fieldName[0] == 's' && strcmp(fieldName, "segments") == 0) return base+19;
+    if (fieldName[0] == 's' && strcmp(fieldName, "segmentNumber") == 0) return base+20;
+    if (fieldName[0] == 'm' && strcmp(fieldName, "multimedia") == 0) return base+21;
     return basedesc ? basedesc->findField(fieldName) : -1;
 }
 
@@ -878,24 +992,30 @@ const char *MessageDescriptor::getFieldTypeString(int field) const
         field -= basedesc->getFieldCount();
     }
     static const char *fieldTypeStrings[] = {
-        "long",    // FIELD_msgId
+        "veins::LAddress::L2Type",    // FIELD_msgId
         "veins::LAddress::L2Type",    // FIELD_senderAddress
-        "veins::Coord",    // FIELD_senderPosition
+        "veins::LAddress::L2Type",    // FIELD_recipient
         "veins::LAddress::L2Type",    // FIELD_source
         "veins::LAddress::L2Type",    // FIELD_dest
-        "int",    // FIELD_ttl
-        "int",    // FIELD_hops
+        "veins::Coord",    // FIELD_senderPosition
         "MessageType",    // FIELD_type
         "CurrentState",    // FIELD_state
         "CentralityType",    // FIELD_centrality
-        "string",    // FIELD_roadData
-        "int",    // FIELD_msgInfo
+        "bool",    // FIELD_originMessage
+        "bool",    // FIELD_updatePaths
+        "int",    // FIELD_hops
+        "int",    // FIELD_maxHops
+        "float",    // FIELD_msgInfo
         "omnetpp::simtime_t",    // FIELD_ackInfo
-        "Vector",    // FIELD_route
-        "Vector",    // FIELD_rsuRoute
-        "Vector",    // FIELD_previousNodes
+        "Deque",    // FIELD_route
+        "Deque",    // FIELD_previousNodes
+        "string",    // FIELD_contentId
+        "string",    // FIELD_content
+        "int",    // FIELD_segments
+        "int",    // FIELD_segmentNumber
+        "bool",    // FIELD_multimedia
     };
-    return (field >= 0 && field < 16) ? fieldTypeStrings[field] : nullptr;
+    return (field >= 0 && field < 22) ? fieldTypeStrings[field] : nullptr;
 }
 
 const char **MessageDescriptor::getFieldPropertyNames(int field) const
@@ -983,22 +1103,28 @@ std::string MessageDescriptor::getFieldValueAsString(void *object, int field, in
     }
     Message *pp = (Message *)object; (void)pp;
     switch (field) {
-        case FIELD_msgId: return long2string(pp->getMsgId());
+        case FIELD_msgId: {std::stringstream out; out << pp->getMsgId(); return out.str();}
         case FIELD_senderAddress: {std::stringstream out; out << pp->getSenderAddress(); return out.str();}
-        case FIELD_senderPosition: {std::stringstream out; out << pp->getSenderPosition(); return out.str();}
+        case FIELD_recipient: {std::stringstream out; out << pp->getRecipient(); return out.str();}
         case FIELD_source: {std::stringstream out; out << pp->getSource(); return out.str();}
         case FIELD_dest: {std::stringstream out; out << pp->getDest(); return out.str();}
-        case FIELD_ttl: return long2string(pp->getTtl());
-        case FIELD_hops: return long2string(pp->getHops());
+        case FIELD_senderPosition: {std::stringstream out; out << pp->getSenderPosition(); return out.str();}
         case FIELD_type: return enum2string(pp->getType(), "MessageType");
         case FIELD_state: return enum2string(pp->getState(), "CurrentState");
         case FIELD_centrality: return enum2string(pp->getCentrality(), "CentralityType");
-        case FIELD_roadData: return oppstring2string(pp->getRoadData());
-        case FIELD_msgInfo: return long2string(pp->getMsgInfo());
+        case FIELD_originMessage: return bool2string(pp->getOriginMessage());
+        case FIELD_updatePaths: return bool2string(pp->getUpdatePaths());
+        case FIELD_hops: return long2string(pp->getHops());
+        case FIELD_maxHops: return long2string(pp->getMaxHops());
+        case FIELD_msgInfo: return double2string(pp->getMsgInfo());
         case FIELD_ackInfo: return simtime2string(pp->getAckInfo());
         case FIELD_route: {std::stringstream out; out << pp->getRoute(); return out.str();}
-        case FIELD_rsuRoute: {std::stringstream out; out << pp->getRsuRoute(); return out.str();}
         case FIELD_previousNodes: {std::stringstream out; out << pp->getPreviousNodes(); return out.str();}
+        case FIELD_contentId: return oppstring2string(pp->getContentId());
+        case FIELD_content: return oppstring2string(pp->getContent());
+        case FIELD_segments: return long2string(pp->getSegments());
+        case FIELD_segmentNumber: return long2string(pp->getSegmentNumber());
+        case FIELD_multimedia: return bool2string(pp->getMultimedia());
         default: return "";
     }
 }
@@ -1013,14 +1139,19 @@ bool MessageDescriptor::setFieldValueAsString(void *object, int field, int i, co
     }
     Message *pp = (Message *)object; (void)pp;
     switch (field) {
-        case FIELD_msgId: pp->setMsgId(string2long(value)); return true;
-        case FIELD_ttl: pp->setTtl(string2long(value)); return true;
-        case FIELD_hops: pp->setHops(string2long(value)); return true;
         case FIELD_type: pp->setType((MessageType)string2enum(value, "MessageType")); return true;
         case FIELD_state: pp->setState((CurrentState)string2enum(value, "CurrentState")); return true;
         case FIELD_centrality: pp->setCentrality((CentralityType)string2enum(value, "CentralityType")); return true;
-        case FIELD_roadData: pp->setRoadData((value)); return true;
-        case FIELD_msgInfo: pp->setMsgInfo(string2long(value)); return true;
+        case FIELD_originMessage: pp->setOriginMessage(string2bool(value)); return true;
+        case FIELD_updatePaths: pp->setUpdatePaths(string2bool(value)); return true;
+        case FIELD_hops: pp->setHops(string2long(value)); return true;
+        case FIELD_maxHops: pp->setMaxHops(string2long(value)); return true;
+        case FIELD_msgInfo: pp->setMsgInfo(string2double(value)); return true;
+        case FIELD_contentId: pp->setContentId((value)); return true;
+        case FIELD_content: pp->setContent((value)); return true;
+        case FIELD_segments: pp->setSegments(string2long(value)); return true;
+        case FIELD_segmentNumber: pp->setSegmentNumber(string2long(value)); return true;
+        case FIELD_multimedia: pp->setMultimedia(string2bool(value)); return true;
         default: return false;
     }
 }
@@ -1034,9 +1165,8 @@ const char *MessageDescriptor::getFieldStructName(int field) const
         field -= basedesc->getFieldCount();
     }
     switch (field) {
-        case FIELD_route: return omnetpp::opp_typename(typeid(Vector));
-        case FIELD_rsuRoute: return omnetpp::opp_typename(typeid(Vector));
-        case FIELD_previousNodes: return omnetpp::opp_typename(typeid(Vector));
+        case FIELD_route: return omnetpp::opp_typename(typeid(Deque));
+        case FIELD_previousNodes: return omnetpp::opp_typename(typeid(Deque));
         default: return nullptr;
     };
 }
@@ -1051,12 +1181,13 @@ void *MessageDescriptor::getFieldStructValuePointer(void *object, int field, int
     }
     Message *pp = (Message *)object; (void)pp;
     switch (field) {
+        case FIELD_msgId: return toVoidPtr(&pp->getMsgId()); break;
         case FIELD_senderAddress: return toVoidPtr(&pp->getSenderAddress()); break;
-        case FIELD_senderPosition: return toVoidPtr(&pp->getSenderPosition()); break;
+        case FIELD_recipient: return toVoidPtr(&pp->getRecipient()); break;
         case FIELD_source: return toVoidPtr(&pp->getSource()); break;
         case FIELD_dest: return toVoidPtr(&pp->getDest()); break;
+        case FIELD_senderPosition: return toVoidPtr(&pp->getSenderPosition()); break;
         case FIELD_route: return toVoidPtr(&pp->getRoute()); break;
-        case FIELD_rsuRoute: return toVoidPtr(&pp->getRsuRoute()); break;
         case FIELD_previousNodes: return toVoidPtr(&pp->getPreviousNodes()); break;
         default: return nullptr;
     }

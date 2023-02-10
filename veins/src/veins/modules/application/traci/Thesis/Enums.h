@@ -14,17 +14,16 @@ enum class CachingPolicy
     LFU
 };
 
-// Used for the test scenarios
-enum class Scenario
-{
-    CENTRALITY,
-    CACHE,
-    ACKNOWLEDGEMENT
-};
-
 // Used for origin information caching policy
 enum class OriginPolicy
 {
     PULL,
     PUSH
 };
+
+enum class Scenario 
+{
+    MACHINE_LEARNING,
+    MANUAL_CENTRALITY
+};
+
