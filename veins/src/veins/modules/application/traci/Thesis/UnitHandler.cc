@@ -76,7 +76,7 @@ void UnitHandler::collectingMsg(Message *wsm)
 
         // Find approximate path length to destination
         if (routingTable.find(wsm->getDest()) != routingTable.end())
-            maxHops = routingTable[wsm->getDest()].size() + 2;
+            ttl = routingTable[wsm->getDest()].size() + 2;
 
         // Calculate result
         for (auto i = routingTable.begin(); i != routingTable.end(); i++)
@@ -85,6 +85,8 @@ void UnitHandler::collectingMsg(Message *wsm)
             if (it != i->second.end())
                 result++;
         }
+
+        //std::cout << "Node " << myId << " calculated betweenness for RSU " << id << " at " << msgTime << endl;
 
         // Create results message
         Message *results = new Message();
@@ -95,12 +97,22 @@ void UnitHandler::collectingMsg(Message *wsm)
         results->setSource(myId);
         results->setDest(id);
         // Define message properties
-        results->setMaxHops(maxHops);
+        results->setMaxHops(ttl);
         results->setType(MessageType::CENTRALITY_REPLY);
         results->setCentrality(CentralityType::BETWEENNESS); 
         results->setMsgInfo(result);
 
-        scheduleAt(simTime() + 0.1 + uniform(0.01, 0.5), results);
+        if (results->getDest() == 34)
+        {
+            std::cout << "Node " << myId << " result " << result << endl;
+
+            if (myId == 154)
+                debugPrint(routingTable);
+        }
+
+        simtime_t time = simTime() + 0.1 + uniform(0.01, 0.5);
+        //std::cout << "Node " << myId << " sent result at " << time << endl;
+        scheduleAt(time, results);
     }
 }
 
@@ -165,6 +177,7 @@ void UnitHandler::cachingMsg(Message *wsm, simtime_t limit)
     }
 
     delete(wsm);
+    thresholdControl();
 }
 
 // --------------- On Message ---------------- //
@@ -284,7 +297,10 @@ void UnitHandler::onRouteReply(Message *wsm)
 {
     // If it's meant for you, accept
     if (wsm->getDest() == myId)
+    {
         EV << "Node " << myId << " accepted route reply.\n";
+        msgTime = simTime();
+    }
 
     // Else, forward
     else 
@@ -379,7 +395,7 @@ void UnitHandler::onAcknowledgement(Message *wsm)
 
     else
     {
-        std::cout << "Acknowledgement received..." << endl;
+        //std::cout << "Node " << myId << " received acknowledgement from Node " << wsm->getSource() << endl;
         // Find the message you received acknowledgement for
         auto it = std::find_if(pendingAck.begin(), pendingAck.end(),
             [&wsm, this](MessageData data) 
@@ -563,6 +579,26 @@ bool UnitHandler::messageMatch(Message *wsm, MessageData data)
 
 bool UnitHandler::insertSegmented(Message *wsm)
 {
+    bool multi = wsm->getMultimedia();
+    if (multi)
+    {
+        auto it = multimediaData.find(wsm->getContentId());
+        if (it != multimediaData.end())
+        {
+            if (it->second.timestamp >= wsm->getCreationTime())
+                return false;
+        }
+    }
+    else 
+    {
+        auto it = roadData.find(wsm->getContentId());
+        if (it != roadData.end())
+        {
+            if (it->second.timestamp >= wsm->getCreationTime())
+                return false;
+        }
+    }
+
     if (!segmentedMessages.empty())
     {
         int segmentNumber = wsm->getSegmentNumber();
@@ -791,7 +827,7 @@ bool UnitHandler::contentSearch(Message *wsm, storageDict storage, bool origin)
         // Extract content
         std::string content = it->second.content;
         int segments = it->second.segments;
-        std::cout << segments << endl;
+        //std::cout << segments << endl;
         // Define message identifiers
         reply->setSenderAddress(myId);
         reply->setSenderPosition(curPosition);
@@ -801,33 +837,49 @@ bool UnitHandler::contentSearch(Message *wsm, storageDict storage, bool origin)
         reply->setContentId(id.c_str());
         reply->setSegments(segments);
         reply->setMultimedia(wsm->getMultimedia());
+
+        simtime_t time;
         // If segmented, send in parts
         if (segments > 1)
         {
             std::string segmentedContent;
+
             float delay = 0.1;
 
             for (int i = 1; i <= segments; i++)
             {
+                time = simTime() + i * delay + uniform(0.01, 0.2);
+
+                //std::cout << "Node " << myId << " sending segmented content to " << wsm->getSource() << " with Content ID " << wsm->getContentId();
+                //std::cout << " and segment number " << i << " at " << time << endl;
+
                 // Break into smaller strings
                 segmentedContent = content[i - 1];
 
                 reply->setSegmentNumber(i);
                 reply->setContent(segmentedContent.c_str());
-                scheduleAt(simTime() + i * delay + uniform(0.01, 0.2), reply->dup());
+                scheduleAt(time, reply->dup());
 
                 // Segment pending acknowledgement
-                pendingAck.push_back(MessageData(reply));
+                Message *repeat = reply->dup();
+                pendingAck.push_back(MessageData(repeat));            
+                repeat->setState(CurrentState::REPEATING);
+                scheduleAt(simTime() + 5 + i * delay, repeat);
             }
         }
 
         else
         {
+            time = simTime() + 1 + uniform(0.01, 0.2);
+            //std::cout << "Node " << myId << " sending content with Content Id " << wsm->getContentId() << " to " << wsm->getSource() << " at " << time << endl;
+
             reply->setContent(content.c_str());
+            scheduleAt(time, reply->dup());
 
             // Segment pending acknowledgement
             pendingAck.push_back(MessageData(reply));
-            scheduleAt(simTime() + 1 + uniform(0.01, 0.2), reply);
+            reply->setState(CurrentState::REPEATING);
+            scheduleAt(simTime() + 5, reply);
         }
 
         return true;
@@ -842,10 +894,17 @@ std::string UnitHandler::extractContent(Message *wsm)
     std::string reconstructed = "";
     int segmentCount = 0;
 
+    // Print that you got the segment depending on message type
+    bool multi = wsm->getMultimedia();
+    std::string printType = multi ? "multimedia" : "road";
+
+    //std::cout << "Node " << myId << " received " << printType << " content segment. Content Id: " << wsm->getContentId();
+    //std::cout << ". Segment number: " << wsm->getSegmentNumber() << " from " << wsm->getSource() << " at " << simTime() << endl;
+
     // Create message to insert into storage
     Message *info = new Message();
 
-    // Find first occurence of content requested
+    // Find first occurrence of content requested
     auto start = std::find_if(segmentedMessages.begin(), segmentedMessages.end(),
         [&wsm, this](MessageData data) { return this->contentMatch(wsm, data); });
 
@@ -866,8 +925,8 @@ std::string UnitHandler::extractContent(Message *wsm)
 
     if (segmentCount == segments)
     {
-        std::cout << "Reconstructed result: \n";
-        std::cout << reconstructed << endl;
+        //std::cout << "Reconstructed result: \n";
+        //std::cout << reconstructed << endl;
 
         Message *data = wsm->dup();
         // Define message properties
@@ -879,8 +938,8 @@ std::string UnitHandler::extractContent(Message *wsm)
             roadData[wsm->getContentId()] = ContentWrapper(data);
 
         segmentedMessages.erase(start, end);
-        for (auto i = segmentedMessages.begin(); i != segmentedMessages.end(); i++)
-            std::cout << "Message " << i->contentId << endl;
+        //for (auto i = segmentedMessages.begin(); i != segmentedMessages.end(); i++)
+            //std::cout << "Message " << i->contentId << endl;
     }
 
     else
@@ -891,7 +950,7 @@ std::string UnitHandler::extractContent(Message *wsm)
 
 void UnitHandler::sendAcknowledgement(Message *wsm)
 {
-    std::cout << "Sending acknowledgement" << endl;
+    //std::cout << "Node " << myId << " sending acknowledgement to Node " << wsm->getSource() << endl;
 
     // Create acknowledgement message
     Message *ack = new Message();
@@ -932,6 +991,6 @@ void UnitHandler::thresholdControl()
     populateWSM(request);
     // Define request properties
     request->setState(CurrentState::CACHING);
-    scheduleAt(simTime() + 15, request);
+    scheduleAt(simTime() + 30, request);
 }
 

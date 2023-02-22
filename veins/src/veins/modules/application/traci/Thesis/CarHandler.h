@@ -29,10 +29,12 @@ namespace veins
             void onWSM(BaseFrame1609_4 *frame) override;
 
             void onBroadcast(Message *wsm) override;
+            void onRequest(Message *wsm) override;
 
             void onDegreeReply(Message *wsm) override;
             void onBetweennessReply(Message *wsm) override;
         
+            void createRequest(std::string contentId, bool multimedia);
         protected:
             int currentSubscribedServiceId;
             bool sentMessage; 

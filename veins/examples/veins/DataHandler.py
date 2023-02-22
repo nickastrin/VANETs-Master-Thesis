@@ -1,9 +1,11 @@
 import sched, time, os
 import pandas as pd
+import time
 from pathlib import Path
 from sklearn.cluster import KMeans
 
 def export_data(scheduler): 
+    start = time.time()
     print ("Doing stuff...")
 
     absolute_path = os.path.dirname(__file__)
@@ -28,6 +30,8 @@ def export_data(scheduler):
     else:
         print("File does not exist")
     
+    end = time.time()
+    print("Time elapsed: ", end - start)
     # do your stuff
     scheduler.enter(30, 1, export_data, (scheduler,))
 

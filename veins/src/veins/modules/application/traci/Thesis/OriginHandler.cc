@@ -18,13 +18,14 @@ void OriginHandler::initialize(int stage)
         unit = UnitType::ORIGIN;
         simulation = Scenario::MACHINE_LEARNING;
         caching = CachingPolicy::FIFO;
-        centrality = CentralityType::CLOSENESS;
+        centrality = CentralityType::DEGREE;
+        origin = OriginPolicy::PUSH;
 
         // Rsu centrality variables
         pushRsu = 0;
         highestCentrality = 0;
         // Number of RSUs in simulation
-        rsuCount = 2;
+        rsuCount = 4;
 
         // Create initializing self message
         Message *init = new Message();
@@ -32,7 +33,6 @@ void OriginHandler::initialize(int stage)
         // Define properties
         init->setState(CurrentState::INITIALIZING);
         scheduleAt(simTime() + 5, init);
-
 
         // Different handling, depending on scenario
         if (simulation == Scenario::MACHINE_LEARNING)
@@ -42,7 +42,7 @@ void OriginHandler::initialize(int stage)
             populateWSM(extract);
             // Define properties
             extract->setState(CurrentState::EXTRACTING);
-            scheduleAt(simTime() + 35, extract);
+            scheduleAt(simTime() + 80, extract);
         }
 
         else 
@@ -71,7 +71,7 @@ void OriginHandler::initializingMsg()
     test->setMultimedia(true);
     ContentWrapper content = ContentWrapper(test);
     std::string id = "4";
-    multimediaData["5"] = content;
+    multimediaData[id] = content;
 
     Message *test_v2 = new Message();
     populateWSM(test_v2);
@@ -81,7 +81,7 @@ void OriginHandler::initializingMsg()
     test_v2->setSegments(3);
     content = ContentWrapper(test_v2);
     id = "5";
-    roadData["5"] = content;
+    roadData[id] = content;
 }
 
 void OriginHandler::requestingMsg()
@@ -100,6 +100,8 @@ void OriginHandler::requestingMsg()
     request->setUpdatePaths(false);
     request->setType(MessageType::ORIGIN_CENTRALITY_REQ);
 
+    std::cout << "Origin " << myId << " requesting centralities, at " << simTime() + 5 << endl;
+    highestCentrality = 0;
     scheduleAt(simTime() + 5, request);
 
     // Create collection message
@@ -135,7 +137,8 @@ void OriginHandler::collectingMsg(Message *wsm)
 
     scheduleAt(simTime() + 0.1 + uniform(0.01, 0.2), info);
 
-    createPushContent();
+    if (origin == OriginPolicy::PUSH && pushRsu != 0)
+        createPushContent();
     delete(wsm);
 }
 
@@ -175,6 +178,8 @@ void OriginHandler::extractingMsg()
                 }
             }
 
+            std::cout << "Push RSU Id: " << pushRsu << endl;
+
             // Create new message
             Message *info = new Message();
             populateWSM(info);
@@ -189,10 +194,11 @@ void OriginHandler::extractingMsg()
             info->setOriginMessage(true);
 
             scheduleAt(simTime() + 0.1 + uniform(0.01, 0.2), info);
-            createPushContent();
+
+            if (origin == OriginPolicy::PUSH && pushRsu != 0)
+                createPushContent();
         }
 
-        std::cout << pushRsu << endl;
         file.close();
 
         if (!remove("cluster_centers.csv"))
@@ -215,7 +221,6 @@ void OriginHandler::onWSM(BaseFrame1609_4 *frame)
 {
     Message *wsm = check_and_cast<Message*>(frame);
     bool accept = false;
-
     if (wsm->getOriginMessage())
         accept = receiveMessage(wsm, rsuRouting);
 
@@ -250,6 +255,7 @@ void OriginHandler::onRsuInitReply(Message *wsm)
 
 void OriginHandler::onOriginCentralityReply(Message *wsm)
 {
+    std::cout << "Origin " << myId << " received centrality reply from RSU " << wsm->getSource() << " at " << simTime() << endl;
     float data = wsm->getMsgInfo();
 
     if (data > highestCentrality)
@@ -283,7 +289,97 @@ void OriginHandler::onPullReply(Message *wsm)
 {
     // Forward to next in line
     handleRouteTraversal(wsm, true);
-    std::cout << "Handling pull reply" << endl;
+    //std::cout << "Handling pull reply" << endl;
+}
+
+void OriginHandler::onPushContent(Message *wsm)
+{
+    // If not meant for you, forward
+    if (wsm->getDest() != myId)
+        handleRouteTraversal(wsm, true);
+    
+    else
+    {
+        std::string content = extractContent(wsm);
+        sendAcknowledgement(wsm);
+
+        bool pushContentToRsu = (pushRsu != 0) && (wsm->getSource() != pushRsu);
+        
+        if (!content.empty() && origin == OriginPolicy::PUSH && pushContentToRsu)
+        {
+            simtime_t time;
+
+            auto it = rsuRouting.find(pushRsu);
+            pathDeque route = it->second;
+
+            // Create push message
+            Message *push = new Message();
+            populateWSM(push);
+            // Define message identifiers
+            push->setSource(myId);
+            push->setDest(pushRsu);
+            push->setSenderAddress(myId);
+            push->setSenderPosition(curPosition);
+            push->setRecipient(route.front());
+            // Define message properties
+            push->setMaxHops(route.size());
+            push->setOriginMessage(true);
+            push->setUpdatePaths(false);
+            push->setType(MessageType::PUSH_CONTENT);
+            push->setMultimedia(wsm->getMultimedia());
+            // Edit route details
+            route.pop_front();
+            push->setRoute(route);
+
+            // Define content details
+            int segments = wsm->getSegments();
+
+            push->setContentId(wsm->getContentId());
+            push->setSegments(segments);
+            push->setMultimedia(wsm->getMultimedia());
+
+            // If segmented, send in parts
+            if (segments > 1)
+            {
+                std::string segmentedContent;
+                float delay = 0.1;
+
+                for (int i = 1; i <= segments; i++)
+                {
+                    time = simTime() + i * delay + uniform(0.01, 0.2);
+                    //std::cout << "Origin " << myId << " sending segmented content to " << pushRsu << " with Content ID " << wsm->getContentId();
+                    //std::cout << " and segment number " << i << " at " << time << endl;
+
+                    // Break into smaller strings
+                    segmentedContent = content[i - 1];
+
+                    push->setSegmentNumber(i);
+                    push->setContent(segmentedContent.c_str());
+                    scheduleAt(time, push->dup());
+
+                    // Segment pending acknowledgement
+                    Message *repeat = push->dup();
+                    pendingAck.push_back(MessageData(repeat));            
+                    repeat->setState(CurrentState::REPEATING);
+                    scheduleAt(simTime() + 5 + i * delay, repeat);
+                }
+            }
+
+            else
+            {   
+                time = simTime() + 1 + uniform(0.01, 0.2);
+                //std::cout << "Origin " << myId << " sending content with Content Id " << wsm->getContentId() << " to " << pushRsu << " at " << time << endl;
+
+                push->setContent(content.c_str());
+                scheduleAt(time, push->dup());
+
+                // Segment pending acknowledgement
+                pendingAck.push_back(MessageData(push));
+                push->setState(CurrentState::REPEATING);
+                scheduleAt(simTime() + 5, push);
+            }
+        }
+    }
 }
 
 // ----------- Auxilary Functions ------------ //
@@ -319,14 +415,16 @@ void OriginHandler::createPushContent()
 void OriginHandler::sendContent(Message *wsm, storageDict &storage, bool multimedia)
 {
     int segments; 
+    simtime_t time;
     float delay = 1;
 
-    std::cout << "Sending\n"; 
+    //std::cout << "Storage size " << storage.size() << endl;
     for (auto i = storage.begin(); i != storage.end(); i++)
     {
         segments = i->second.segments;
-        std::cout << "Segments " << segments << endl;
-        std::cout << "Size " << storage.size() << endl;
+        //std::cout << "Content ID " << i->first << endl;
+        //std::cout << "Segments " << segments << endl;
+
         // Add flags and identifiers
         wsm->setMultimedia(multimedia);
         wsm->setContentId(i->first.c_str());
@@ -339,25 +437,39 @@ void OriginHandler::sendContent(Message *wsm, storageDict &storage, bool multime
 
             for (int j = 1; j <= segments; j++)
             {
+                time = simTime() + j * delay + 2 + uniform(0.01, 0.2);
+
+                //std::cout << "Origin " << myId << " pushing segmented content to RSU " << pushRsu;
+                //std::cout << " segment number " << j << " at " << time << endl;
+
                 // Break info in smaller parts
                 segmentedContent = i->second.content[j - 1];
                 // Edit reply content
                 wsm->setSegmentNumber(j);
                 wsm->setContent(segmentedContent.c_str());
-                scheduleAt(simTime() + j * delay + 2 + uniform(0.01, 0.2), wsm->dup());
+                scheduleAt(time, wsm->dup());
                 
                 // Segment pending acknowledgement
-                pendingAck.push_back(MessageData(wsm));
+                Message *repeat = wsm->dup();
+                pendingAck.push_back(MessageData(repeat));            
+                repeat->setState(CurrentState::REPEATING);
+                scheduleAt(simTime() + 5 + j * delay, repeat);
             }
         }
 
         else 
         {
+            time = simTime() + 2 + uniform(0.01, 0.2);
+            //std::cout << "Origin " << myId << " pushing content to RSU " << pushRsu << " at " << time << endl;
+
             wsm->setContent(i->second.content.c_str());
+            scheduleAt(time, wsm->dup());
 
             // Segment pending acknowledgement
-            pendingAck.push_back(MessageData(wsm));
-            scheduleAt(simTime() + 2 + uniform(0.01, 0.2), wsm->dup());
+            Message *repeat = wsm->dup();
+            repeat->setState(CurrentState::REPEATING);
+            pendingAck.push_back(MessageData(repeat));
+            scheduleAt(simTime() + 5, repeat);
         }
     }
 }

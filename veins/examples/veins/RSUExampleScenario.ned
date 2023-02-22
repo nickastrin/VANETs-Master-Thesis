@@ -31,7 +31,7 @@ network RSUExampleScenario extends Scenario
         {   
             @display("p=150,140;i=veins/sign/yellowdiamond;is=vs");
         }
-        rsu[2]: RSU 
+        rsu[4]: RSU 
         {
             @display("p=150,140;i=veins/sign/yellowdiamond;is=vs");
         }

@@ -19,17 +19,18 @@ void RsuHandler::initialize(int stage)
         closeness = 0;
         betweenness = 0;
         // Caching variables
-        capacity = 100;
+        capacity = 200;
         threshold = 30;
-        flushed = 10;
+        flushed = 20;
 
-        maxHops = 25;       // Default maximum ttl
+        maxHops = 55;       // Default maximum ttl
         lastUpdated = simTime();
 
         // Simulation variables
         unit = UnitType::RSU;
         caching = CachingPolicy::FIFO;
         centrality = CentralityType::DEGREE;
+        origin = OriginPolicy::PUSH;
 
         // Network information
         originIp = 0;
@@ -37,6 +38,8 @@ void RsuHandler::initialize(int stage)
         // Highest centrality RSU info
         pushRsu = 0;
         highestCentrality = 0;
+
+        thresholdControl();
     }
 }
 
@@ -59,7 +62,7 @@ void RsuHandler::collectingMsg(Message *wsm)
             if (result != 0)
                 result = float(routingTable.size()) / result;
             std::cout << "Average shortest route length is " << result << endl;
-            debugPrint(routingTable);
+            //debugPrint(routingTable);
 
             closeness = result; 
         }
@@ -76,6 +79,8 @@ void RsuHandler::collectingMsg(Message *wsm)
             else if (centrality == CentralityType::BETWEENNESS)
             {
                 result = betweenness;
+                if (myId == 34)
+                    debugPrint(routingTable);
                 std::cout << "Node " << myId << " betweenness centrality is " << result << endl;
             }
         }
@@ -85,7 +90,6 @@ void RsuHandler::collectingMsg(Message *wsm)
         // Find optimal path to origin
         auto it = rsuRouting.find(originIp);
         pathDeque route = it->second;
-
 
         // Create info message to origin
         Message *info = new Message();
@@ -106,7 +110,17 @@ void RsuHandler::collectingMsg(Message *wsm)
         route.pop_front();
         info->setRoute(route);
 
-        scheduleAt(simTime() + 1 + uniform(0.01, 0.2), info);
+        std::cout << "RSU " << myId << " completed centrality calculation at " << msgTime << endl;
+
+        simtime_t time = simTime() + 1 + uniform(0.01, 0.5);
+        std::cout << "RSU " << myId << " sending centrality info to origin at " << time << endl;
+        scheduleAt(time, info);
+
+        msgTime = 0; 
+
+        degree = 0;
+        closeness = 0;
+        betweenness = 0;
     }
 
     delete(wsm);
@@ -135,6 +149,7 @@ void RsuHandler::onWSM(BaseFrame1609_4 *frame)
     {
         // Change RSU color to gold
         findHost()->getDisplayString().setTagArg("i", 1, "gold");
+
         UnitHandler::onWSM(frame);
     }
 }
@@ -181,7 +196,7 @@ void RsuHandler::onRsuInitReply(Message *wsm)
 
 void RsuHandler::onOriginCentralityReq(Message *wsm)
 {
-    std::cout << "Received origin request\n";
+    std::cout << "RSU " << myId << " received origin centrality request, at " << simTime() << endl;
     if (centrality != wsm->getCentrality())
         centrality = wsm->getCentrality();
     
@@ -209,7 +224,9 @@ void RsuHandler::onOriginCentralityReq(Message *wsm)
         request->setRoute(route);
     }
 
-    scheduleAt(simTime() + 5 + uniform(0.01, 0.2), request->dup());
+    simtime_t time = simTime() + 5 + uniform(0.01, 0.2);
+    std::cout << "RSU " << myId << " sending centrality request at " << time << endl;
+    scheduleAt(time, request->dup());
 
     // Create message for results collection
     Message *collect = new Message();
@@ -268,6 +285,8 @@ void RsuHandler::onPullReply(Message *wsm)
     else
     {
         std::string content = extractContent(wsm);
+        sendAcknowledgement(wsm);
+
         if (!content.empty())
         {
             for (auto i = pendingReply.begin(); i != pendingReply.end(); i++)
@@ -292,10 +311,11 @@ void RsuHandler::onPullReply(Message *wsm)
                     reply->setSegments(segments);
                     reply->setMultimedia(i->multimedia);
 
+                    simtime_t time;
                     if (segments > 1)
                     {
                         std::string segmentedContent;
-                        float delay = 1;
+                        float delay = 0.1;
 
                         for (int j = 1; j <= segments; j++)
                         {
@@ -304,14 +324,31 @@ void RsuHandler::onPullReply(Message *wsm)
                             // Edit reply content
                             reply->setSegmentNumber(j);
                             reply->setContent(segmentedContent.c_str());
-                            scheduleAt(simTime() + j * delay + uniform(0.01, 0.2), reply->dup());
+
+                            time = simTime() + j * delay + uniform(0.01, 0.2);
+                            //std::cout << "RSU " << myId << " sending segmented content to " << i->source << " with Content ID " << wsm->getContentId();
+                            //std::cout << " and segment number " << j << " at " << time << endl;
+                            scheduleAt(time, reply->dup());
+
+                            // Segment pending acknowledgement
+                            Message *repeat = reply->dup();
+                            pendingAck.push_back(MessageData(repeat));            
+                            repeat->setState(CurrentState::REPEATING);
+                            scheduleAt(simTime() + 5 + j * delay, repeat);
                         }
                     }
                     // Else, just send content
                     else
                     {
+                        time = simTime() + 1 + uniform(0.01, 0.2);
+                        //std::cout << "RSU " << myId << " sending content with Content Id " << wsm->getContentId() << " to " << i->source << " at " << time << endl;
                         reply->setContent(content.c_str());
-                        scheduleAt(simTime() + 1 + uniform(0.01, 0.2), reply);
+                        scheduleAt(time, reply->dup());
+
+                        // Segment pending acknowledgement
+                        pendingAck.push_back(MessageData(reply));
+                        reply->setState(CurrentState::REPEATING);
+                        scheduleAt(simTime() + 5, reply);
                     }
                 }
             }
@@ -351,8 +388,11 @@ void RsuHandler::onBroadcast(Message *wsm)
 {
     // Extract info
     std::string content = extractContent(wsm);
-    if (!content.empty())
+
+    if (!content.empty() && origin == OriginPolicy::PUSH)
     {
+        simtime_t time;
+
         auto it = rsuRouting.find(originIp);
         pathDeque route = it->second;
 
@@ -390,23 +430,37 @@ void RsuHandler::onBroadcast(Message *wsm)
 
             for (int i = 1; i <= segments; i++)
             {
+                time = simTime() + i * delay + uniform(0.01, 0.2);
+                //std::cout << "RSU " << myId << " pushing segmented content to " << originIp << " with Content ID " << wsm->getContentId();
+                //std::cout << " and segment number " << i << " at " << time << endl;
+
                 // Break into smaller strings
                 segmentedContent = content[i - 1];
 
                 push->setSegmentNumber(i);
                 push->setContent(segmentedContent.c_str());
-                scheduleAt(simTime() + i * delay + uniform(0.01, 0.2), push->dup());
+                scheduleAt(time, push->dup());
 
-                pendingAck.push_back(MessageData(push));
+                // Segment pending acknowledgement
+                Message *repeat = push->dup();
+                pendingAck.push_back(MessageData(repeat));            
+                repeat->setState(CurrentState::REPEATING);
+                scheduleAt(simTime() + 5 + i * delay, repeat);
             }
         }
 
         else
-        {
-            push->setContent(content.c_str());
+        {   
+            time = simTime() + 1 + uniform(0.01, 0.2);
+            //std::cout << "RSU " << myId << " sending content with Content Id " << wsm->getContentId() << " to " << originIp << " at " << time << endl;
 
+            push->setContent(content.c_str());
+            scheduleAt(time, push->dup());
+
+            // Segment pending acknowledgement
             pendingAck.push_back(MessageData(push));
-            scheduleAt(simTime() + 1 + uniform(0.01, 0.2), push);
+            push->setState(CurrentState::REPEATING);
+            scheduleAt(simTime() + 5, push);
         }
     }
 
@@ -423,9 +477,9 @@ void RsuHandler::onRequest(Message *wsm)
     bool multimedia = wsm->getMultimedia();
 
     if (multimedia)
-        found = contentSearch(wsm, multimediaData, true);
+        found = contentSearch(wsm, multimediaData, false);
     else
-        found = contentSearch(wsm, roadData, true);
+        found = contentSearch(wsm, roadData, false);
 
     if (!found)
     {
@@ -451,21 +505,8 @@ void RsuHandler::onDegreeReply(Message *wsm)
     if (wsm->getDest() == myId)
     {
         degree++;
+        msgTime = simTime();
         //std::cout << "node " << wsm->getSource() << endl;
-
-        // Create acknowledgement message
-        Message *ack = new Message();
-        populateWSM(ack);
-        // Define message ids and properties
-        ack->setSenderAddress(myId);
-        ack->setSenderPosition(curPosition);
-        ack->setSource(myId);
-        ack->setDest(wsm->getSource());
-        ack->setAckInfo(wsm->getCreationTime());
-        ack->setMaxHops(wsm->getHops());
-        ack->setType(MessageType::ACKNOWLEDGEMENT);
-
-        scheduleAt(simTime() + 0.1 + uniform(0.01, 0.2), ack);
     }
 
     else
@@ -482,8 +523,7 @@ void RsuHandler::onBetweennessReply(Message *wsm)
     if (wsm->getDest() == myId)
     {
         betweenness += wsm->getMsgInfo();
-
-        // TODO: Send acknowledgement
+        msgTime = simTime();
     }
 
     else
@@ -525,5 +565,8 @@ void RsuHandler::createPullReq(std::string contentId, long source,
     request->setContentId(contentId.c_str());
     request->setMultimedia(multimedia);
 
-    scheduleAt(simTime() + 0.1 + uniform(0.01, 0.2), request);
+    simtime_t time = simTime() + 1 + uniform(0.01, 0.2);
+    //std::cout << "RSU " << myId << " sending pull request to " << dest << " at " << time << endl;
+
+    scheduleAt(time, request);
 }

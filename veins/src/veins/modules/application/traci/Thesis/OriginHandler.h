@@ -26,6 +26,7 @@ namespace veins
 
             void onPullReq(Message *wsm) override;
             void onPullReply(Message *wsm) override;
+            void onPushContent(Message *wsm) override;
 
             void createPushContent();
             void sendContent(Message *wsm, storageDict &storage, bool multimedia);

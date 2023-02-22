@@ -20,11 +20,11 @@ void CarHandler::initialize(int stage)
         betweenness = 0;
 
         // Caching variables
-        capacity = 100;
+        capacity = 200;
         threshold = 30;
-        flushed = 10;
+        flushed = 20;
 
-        maxHops = 25;       // Default maximum ttl
+        maxHops = 55;       // Default maximum ttl
 
         // Misc car variables
         currentSubscribedServiceId = -1;
@@ -43,7 +43,8 @@ void CarHandler::initialize(int stage)
         // Define properties
         init->setState(CurrentState::INITIALIZING);
         scheduleAt(simTime() + 5, init);
-        // TODO: Initialize threshold control
+
+        thresholdControl();
     }
 }
 
@@ -87,21 +88,30 @@ void CarHandler::handlePositionUpdate(cObject *obj)
         lastDroveAt = simTime();
         sentMessage = false;
     }
+
+/*
+    if (simTime() == 120 && myId == 58)
+        createRequest("5", false);*/
 }
 
 // -------------- Self Message --------------- //
 
 void CarHandler::initializingMsg()
 {
-    // The first car to enter simulation
-    if (myId == 28)
+    // The first node in the simulation is responsible writing the data to file
+    cModule *mod = getParentModule()->getModuleByPath("node[0]");
+    if (mod == nullptr)
+        throw cRuntimeError("Could not find module with path: node[0]");
+
+    long initId = mod->getId() + 2;
+    if (myId == initId)
     {
         // Create writing self message
         Message *write = new Message();
         populateWSM(write);
         // Define properties
         write->setState(CurrentState::WRITING);
-        scheduleAt(30, write);
+        scheduleAt(75, write);
     }
 }
 
@@ -140,7 +150,7 @@ void CarHandler::writingMsg()
     populateWSM(write);
     // Define properties
     write->setState(CurrentState::WRITING);
-    scheduleAt(simTime() + 30, write);
+    scheduleAt(simTime() + 60, write);
 }
 
 // --------------- On Message ---------------- //
@@ -173,6 +183,10 @@ void CarHandler::onWSM(BaseFrame1609_4* frame)
     {
         // Change RSU color to gold
         findHost()->getDisplayString().setTagArg("i", 1, "green");
+
+        if (wsm->getSource() == 34)
+            findHost()->getDisplayString().setTagArg("i", 1, "cyan");
+            
         UnitHandler::onWSM(frame);
     }
 }
@@ -196,6 +210,27 @@ void CarHandler::onBroadcast(Message *wsm)
     scheduleAt(simTime() + 1 + uniform(0.01, 0.2), wsm->dup());
 }
 
+void CarHandler::onRequest(Message *wsm)
+{
+    // Check if you have the content
+    bool found = false;
+    bool multimedia = wsm->getMultimedia();
+
+    if (multimedia)
+        found = contentSearch(wsm, multimediaData, true);
+    else
+        found = contentSearch(wsm, roadData, true);
+
+    if (!found)
+    {
+        // Forward request to reach other cars
+        wsm->setSenderAddress(myId);
+        wsm->setSenderPosition(curPosition);
+
+        scheduleAt(simTime() + 0.1 + uniform(0.01, 0.2), wsm->dup());
+    }
+}
+
 // ----------- On Centrality Reply ----------- //
 
 void CarHandler::onDegreeReply(Message *wsm)
@@ -212,4 +247,27 @@ void CarHandler::onBetweennessReply(Message *wsm)
     wsm->setSenderPosition(curPosition);
 
     scheduleAt(simTime() + 0.1 + uniform(0.01, 0.2), wsm->dup());
+}
+
+// -------------- Auxilary ------------------- //
+
+void CarHandler::createRequest(std::string contentId, bool multimedia)
+{
+    // Create request message
+    Message *wsm = new Message();
+    populateWSM(wsm);
+    // Define identifiers
+    wsm->setSenderAddress(myId);
+    wsm->setSenderPosition(curPosition);
+    wsm->setSource(myId);
+    // Define properties
+    wsm->setType(MessageType::REQUEST);
+    // Define content
+    wsm->setContentId(contentId.c_str());
+    wsm->setMultimedia(multimedia);
+
+    // Send request
+    simtime_t time = simTime() + 1 + uniform(0.01, 0.2);
+    std::cout << "Node " << myId << ", sending request at " << time << std::endl;
+    scheduleAt(time, wsm);
 }

@@ -183,7 +183,7 @@ namespace veins
 
             // Variables for message transmission
             double signalRange;
-            int maxHops;
+            int maxHops = 50;
 
             // Variables for caching policy
             int capacity;
@@ -218,5 +218,7 @@ namespace veins
             storageDict roadData;
 
             dataDeque segmentedMessages;
+
+            simtime_t msgTime;
     };
 }
