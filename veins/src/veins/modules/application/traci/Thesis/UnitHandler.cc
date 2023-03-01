@@ -110,7 +110,7 @@ void UnitHandler::collectingMsg(Message *wsm)
                 debugPrint(routingTable);
         }
 
-        simtime_t time = simTime() + 0.1 + uniform(0.01, 0.5);
+        simtime_t time = simTime() + 0.1 + uniform(0.01, 2);
         //std::cout << "Node " << myId << " sent result at " << time << endl;
         scheduleAt(time, results);
     }
@@ -121,12 +121,12 @@ void UnitHandler::repeatingMsg(Message *wsm)
     // Search if message in the acknowledgements deque
     auto it = std::find_if(pendingAck.begin(), pendingAck.end(),
         [&wsm, this](MessageData data) 
-            { return (wsm->getSource() == data.dest && contentMatch(wsm, data)); });
+            { return (wsm->getDest() == data.dest && contentMatch(wsm, data) && wsm->getSegmentNumber() == data.segmentNumber); });
 
     if (it != pendingAck.end())
     {   
         // Resend the message a limited amount of times before deleting
-        if (it->attempts > 2)
+        if (it->attempts >= 1)
         {
             // To optimize deletion, swap element with last
             // And delete it, taking advantage of deque pop_back
@@ -140,14 +140,15 @@ void UnitHandler::repeatingMsg(Message *wsm)
         else
         {
             it->attempts++;
+            //std::cout << "Attempts " << it->attempts << " Target: " << it->dest <<  endl;
 
             // If message hasn't been acknowledged, reschedule repeat check
-            wsm->setMaxHops(wsm->getMaxHops());
-            scheduleAt(simTime() + uniform(0.01, 0.2), wsm->dup());
+            wsm->setMaxHops(wsm->getMaxHops() + 2);
+            scheduleAt(simTime() + uniform(0.01, 0.5), wsm->dup());
 
             // And resend the message with higher hop count
             wsm->setState(CurrentState::SENDING);
-            scheduleAt(simTime() + uniform(0.01, 0.2), wsm);
+            scheduleAt(simTime() + uniform(0.01, 0.5), wsm);
         }
     } 
 
@@ -275,7 +276,7 @@ void UnitHandler::onReply(Message *wsm)
     {
         wsm->setSenderAddress(myId);
         wsm->setSenderPosition(curPosition);
-        scheduleAt(simTime() + uniform(0.01, 0.2), wsm->dup());
+        scheduleAt(simTime() + uniform(0.01, 0.5), wsm->dup());
     }
 
     else 
@@ -299,7 +300,8 @@ void UnitHandler::onRouteReply(Message *wsm)
     if (wsm->getDest() == myId)
     {
         EV << "Node " << myId << " accepted route reply.\n";
-        msgTime = simTime();
+        if (msgTime < simTime() - requestTime)
+            msgTime = simTime() - requestTime;
     }
 
     // Else, forward
@@ -348,7 +350,7 @@ void UnitHandler::onBetweennessReq(Message *wsm)
     wsm->setSenderAddress(myId);
     wsm->setSenderPosition(curPosition);
 
-    scheduleAt(simTime() + 0.1 + uniform(0.01, 0.2), wsm->dup());
+    scheduleAt(simTime() + 0.1 + uniform(0.01, 0.5), wsm->dup());
 
     // Create route request
     createRouteReq(MessageType::ROUTE_REQ, maxHops);
@@ -362,7 +364,7 @@ void UnitHandler::onBetweennessReq(Message *wsm)
     collect->setType(MessageType::CENTRALITY_REQ);
     collect->setCentrality(CentralityType::BETWEENNESS);
 
-    scheduleAt(simTime() + 10 + uniform(0.01, 0.5), collect);
+    scheduleAt(simTime() + 25 + uniform(0.01, 0.5), collect);
 }
 
 
@@ -390,7 +392,7 @@ void UnitHandler::onAcknowledgement(Message *wsm)
     {
         wsm->setSenderAddress(myId);
         wsm->setSenderPosition(curPosition);
-        scheduleAt(simTime() + uniform(0.01, 0.2), wsm->dup());
+        scheduleAt(simTime() + uniform(0.01, 0.5), wsm->dup());
     }
 
     else
@@ -399,7 +401,8 @@ void UnitHandler::onAcknowledgement(Message *wsm)
         // Find the message you received acknowledgement for
         auto it = std::find_if(pendingAck.begin(), pendingAck.end(),
             [&wsm, this](MessageData data) 
-            { return (wsm->getSource() == data.dest && contentMatch(wsm, data)); });
+            { return (wsm->getSource() == data.dest && contentMatch(wsm, data) && wsm->getSegmentNumber() == data.segmentNumber); });
+
 
         if (it != pendingAck.end())
         {
@@ -438,32 +441,36 @@ bool UnitHandler::receiveMessage(Message *wsm, routingDict &routing)
     bool update = false;
     bool insertion = false;
 
+    // Extract origin info
+    bool origin = wsm->getOriginMessage();
+    if (simTime() - lastUpdated > 75)
+    {
+        //std::cout << "Cleared routing table at " << simTime() << " for node " << myId << "\n";
+        routingTable.clear();
+        lastUpdated = simTime();
+    }
+
     // Check if routing table needs an update
     pathDeque route = wsm->getRoute();
     pathDeque previous = wsm->getPreviousNodes();
 
-    // If you're already in route, return false
-    if (inRoute(route))
-        return false;
-
-    // Extract origin info
-    bool origin = wsm->getOriginMessage();
-    if (simTime() - lastUpdated > 100 && !origin)
-        routing.clear();
-
     bool discovery = wsm->getUpdatePaths();
     if (discovery)
     {
+        // If you're already in route, return false
+        if (inRoute(route))
+            return false;
+
         // Check if you can extract route info
         if (!route.empty())
         {
-            update = routingTableUpdate(route, routing);
+            update = routingTableUpdate(route, routing, origin);
             if (!update) 
                 return false;
         }
         if (!previous.empty())
         {        
-            update = routingTableUpdate(previous, routing);
+            update = routingTableUpdate(previous, routing, origin);
             if (!update) 
                 return false;
         }
@@ -477,6 +484,8 @@ bool UnitHandler::receiveMessage(Message *wsm, routingDict &routing)
     std::string content = wsm->getContent();
     if (!content.empty())
     {
+        if (wsm->getSource() == 20 && wsm->getDest() == 35)
+            std::cout << "Node " << myId << " received message from Node " << wsm->getSource() << " with content: " << content << endl;
         if (wsm->getDest() == myId || wsm->getType() == MessageType::BROADCAST)
             insertion = insertSegmented(wsm);
         else 
@@ -490,7 +499,7 @@ bool UnitHandler::receiveMessage(Message *wsm, routingDict &routing)
     return (update || insertion);
 }
 
-bool UnitHandler::routingTableUpdate(pathDeque path, routingDict &routing)
+bool UnitHandler::routingTableUpdate(pathDeque path, routingDict &routing, bool origin)
 {   
     // Variables for map check
     pathDeque route;
@@ -520,7 +529,8 @@ bool UnitHandler::routingTableUpdate(pathDeque path, routingDict &routing)
 
         // Update routing table
         routing[id] = route;
-        lastUpdated = simTime();
+        if (!origin)
+            lastUpdated = simTime();
     }
 
     return true;
@@ -579,7 +589,9 @@ bool UnitHandler::messageMatch(Message *wsm, MessageData data)
 
 bool UnitHandler::insertSegmented(Message *wsm)
 {
+    
     bool multi = wsm->getMultimedia();
+
     if (multi)
     {
         auto it = multimediaData.find(wsm->getContentId());
@@ -708,6 +720,7 @@ void UnitHandler::createRouteReq(MessageType type, int ttl, bool origin, bool up
     request->setSenderAddress(myId);
     request->setSenderPosition(curPosition);
     request->setSource(myId);
+    request->setInitPosition(curPosition);
     // Define properties
     request->setType(type);
     request->setMaxHops(ttl);
@@ -717,8 +730,9 @@ void UnitHandler::createRouteReq(MessageType type, int ttl, bool origin, bool up
     pathDeque route;
     route.push_back(myId);
     request->setRoute(route);
-
-    scheduleAt(simTime() + 1 + uniform(0.01, 0.2), request);
+    
+    // TODO: MAYBE REVERT TO 0.1
+    scheduleAt(simTime() + 1 + uniform(0.01, 0.5), request);
 }
 
 void UnitHandler::handleRouteReq(Message *wsm, MessageType type)
@@ -747,7 +761,8 @@ void UnitHandler::handleRouteReq(Message *wsm, MessageType type)
     reply->setRoute(route);
     reply->setPreviousNodes(previous);
 
-    scheduleAt(simTime() + 0.1 + uniform(0.01, 0.2), reply);
+    // TODO: MAYBE INVERT THE VALUES
+    scheduleAt(simTime() + 1 + uniform(0.01, 0.5), reply);
 
     // Forward original message to other nodes
     wsm->setSenderAddress(myId);
@@ -757,7 +772,7 @@ void UnitHandler::handleRouteReq(Message *wsm, MessageType type)
     route.push_back(myId);
     wsm->setRoute(route);
 
-    scheduleAt(simTime() + 0.2 + uniform(0.01, 0.2), wsm->dup());
+    scheduleAt(simTime() + 0.1 + uniform(0.01, 0.5), wsm->dup());
 }
 
 void UnitHandler::handleRouteTraversal(Message *wsm, bool forward)
@@ -786,7 +801,7 @@ void UnitHandler::handleRouteTraversal(Message *wsm, bool forward)
     wsm->setRoute(route);
     wsm->setPreviousNodes(previous);
 
-    scheduleAt(simTime() + 0.1 + uniform(0.01, 0.2), wsm->dup());
+    scheduleAt(simTime() + 0.1 + uniform(0.01, 0.5), wsm->dup());
 }
 
 // ------------ Content Functions ------------ //   
@@ -848,10 +863,10 @@ bool UnitHandler::contentSearch(Message *wsm, storageDict storage, bool origin)
 
             for (int i = 1; i <= segments; i++)
             {
-                time = simTime() + i * delay + uniform(0.01, 0.2);
+                time = simTime() + i * delay + uniform(0.01, 0.5);
 
-                //std::cout << "Node " << myId << " sending segmented content to " << wsm->getSource() << " with Content ID " << wsm->getContentId();
-                //std::cout << " and segment number " << i << " at " << time << endl;
+                std::cout << "Node " << myId << " sending segmented content to " << wsm->getSource() << " with Content ID " << wsm->getContentId();
+                std::cout << " and segment number " << i << " at " << time << endl;
 
                 // Break into smaller strings
                 segmentedContent = content[i - 1];
@@ -870,8 +885,8 @@ bool UnitHandler::contentSearch(Message *wsm, storageDict storage, bool origin)
 
         else
         {
-            time = simTime() + 1 + uniform(0.01, 0.2);
-            //std::cout << "Node " << myId << " sending content with Content Id " << wsm->getContentId() << " to " << wsm->getSource() << " at " << time << endl;
+            time = simTime() + 1 + uniform(0.01, 0.5);
+            std::cout << "Node " << myId << " sending content with Content Id " << wsm->getContentId() << " to " << wsm->getSource() << " at " << time << endl;
 
             reply->setContent(content.c_str());
             scheduleAt(time, reply->dup());
@@ -898,11 +913,8 @@ std::string UnitHandler::extractContent(Message *wsm)
     bool multi = wsm->getMultimedia();
     std::string printType = multi ? "multimedia" : "road";
 
-    //std::cout << "Node " << myId << " received " << printType << " content segment. Content Id: " << wsm->getContentId();
-    //std::cout << ". Segment number: " << wsm->getSegmentNumber() << " from " << wsm->getSource() << " at " << simTime() << endl;
-
-    // Create message to insert into storage
-    Message *info = new Message();
+    std::cout << "Node " << myId << " received " << printType << " content segment. Content Id: " << wsm->getContentId();
+    std::cout << ". Segment number: " << wsm->getSegmentNumber() << " from " << wsm->getSource() << " at " << simTime() << endl;
 
     // Find first occurrence of content requested
     auto start = std::find_if(segmentedMessages.begin(), segmentedMessages.end(),
@@ -923,15 +935,178 @@ std::string UnitHandler::extractContent(Message *wsm)
             break;
     }
 
+    if (!recFirst && segments > 1 && wsm->getSegmentNumber() == 1 && wsm->getMultimedia())
+    {
+        recFirst = true;
+        recFirstTime = simTime();
+    }
+
     if (segmentCount == segments)
     {
-        //std::cout << "Reconstructed result: \n";
-        //std::cout << reconstructed << endl;
+        std::cout << "Reconstructed result: \n";
+        std::cout << reconstructed << endl;
 
         Message *data = wsm->dup();
         // Define message properties
         data->setContent(reconstructed.c_str());
 
+        if (unit == UnitType::VEHICLE && wsm->getMultimedia())
+        {
+            if (!sec && segments == 1)
+            {
+                cModule *origin = getParentModule()->getModuleByPath("origin[0]");
+                if (origin == nullptr)
+                    throw cRuntimeError("Could not find module with path: origin[0]");
+
+                int id = origin->par("scenarioId");
+                int rsuCount = origin->par("rsuCount");
+
+                std::string simType;
+                std::string centType;
+                std::string origType;
+
+                if (id % 8 == 1)
+                {
+                    simType = "ML";
+                    centType = "Degree";
+                    origType = "Push";
+                }
+                else if (id % 8 == 2)
+                {
+                    simType = "ML";
+                    centType = "Degree";
+                    origType = "Pull";
+                }
+                else if (id % 8 == 3)
+                {
+                    simType = "Manual";
+                    centType = "Degree";
+                    origType = "Push";
+                }
+                else if (id % 8 == 4)
+                {
+                    simType = "Manual";
+                    centType = "Degree";
+                    origType = "Pull";
+                }
+                else if (id % 8 == 5)
+                {
+                    simType = "Manual";
+                    centType = "Closeness";
+                    origType = "Push";
+                }
+                else if (id % 8 == 6)
+                {
+                    simType = "Manual";
+                    centType = "Closeness";
+                    origType = "Pull";
+                }
+                else if (id % 8 == 7)
+                {
+                    simType = "Manual";
+                    centType = "Betweenness";
+                    origType = "Push";
+                }
+                else if (id % 8 == 0)
+                {
+                    simType = "Manual";
+                    centType = "Betweenness";
+                    origType = "Pull";
+                }
+                    std::ofstream file;
+                    file.open("response_time.csv", std::ios_base::app);
+                    file << std::to_string(rsuCount) + "," + 
+                        std::to_string(id) + "," +
+                        wsm->getContentId() + ","  +
+                        std::to_string(simTime().dbl()) + ","  +
+                        std::to_string(simTime().dbl()) + ","  +
+                        "REP" + "," + 
+                        simType + "," +
+                        centType + "," + 
+                        origType + "\n";
+                    file.close();
+                    
+                    sec = true;
+            }
+
+            if (!rec && segments > 1)
+            {
+                cModule *origin = getParentModule()->getModuleByPath("origin[0]");
+                if (origin == nullptr)
+                    throw cRuntimeError("Could not find module with path: origin[0]");
+
+                int id = origin->par("scenarioId");
+                int rsuCount = origin->par("rsuCount");
+
+                std::string simType;
+                std::string centType;
+                std::string origType;
+
+                if (id % 8 == 1)
+                {
+                    simType = "ML";
+                    centType = "Degree";
+                    origType = "Push";
+                }
+                else if (id % 8 == 2)
+                {
+                    simType = "ML";
+                    centType = "Degree";
+                    origType = "Pull";
+                }
+                else if (id % 8 == 3)
+                {
+                    simType = "Manual";
+                    centType = "Degree";
+                    origType = "Push";
+                }
+                else if (id % 8 == 4)
+                {
+                    simType = "Manual";
+                    centType = "Degree";
+                    origType = "Pull";
+                }
+                else if (id % 8 == 5)
+                {
+                    simType = "Manual";
+                    centType = "Closeness";
+                    origType = "Push";
+                }
+                else if (id % 8 == 6)
+                {
+                    simType = "Manual";
+                    centType = "Closeness";
+                    origType = "Pull";
+                }
+                else if (id % 8 == 7)
+                {
+                    simType = "Manual";
+                    centType = "Betweenness";
+                    origType = "Push";
+                }
+                else if (id % 8 == 0)
+                {
+                    simType = "Manual";
+                    centType = "Betweenness";
+                    origType = "Pull";
+                }
+                    std::ofstream file;
+                    file.open("response_time.csv", std::ios_base::app);
+                    file << std::to_string(rsuCount) + "," + 
+                        std::to_string(id) + "," +
+                        wsm->getContentId() + ","  +
+                        std::to_string(recFirstTime.dbl()) + ","  +
+                        std::to_string(simTime().dbl()) + ","  +
+                        "REP" + "," + 
+                        simType + "," +
+                        centType + "," + 
+                        origType + "\n";
+                    file.close();
+                    
+                    rec = true;
+            }
+        }
+        
         if (wsm->getMultimedia())
             multimediaData[wsm->getContentId()] = ContentWrapper(data);
         else 
@@ -964,10 +1139,11 @@ void UnitHandler::sendAcknowledgement(Message *wsm)
     ack->setType(MessageType::ACKNOWLEDGEMENT);
     ack->setOriginMessage(wsm->getOriginMessage());
     ack->setContentId(wsm->getContentId());
+    ack->setSegments(wsm->getSegments());
     ack->setSegmentNumber(wsm->getSegmentNumber());
     ack->setMultimedia(wsm->getMultimedia());
     // Schedule message
-    scheduleAt(simTime() + 1 + uniform(0.01, 0.2), ack);
+    scheduleAt(simTime() + 1 + uniform(0.01, 0.5), ack);
 }
 
 void UnitHandler::debugPrint(routingDict routing)

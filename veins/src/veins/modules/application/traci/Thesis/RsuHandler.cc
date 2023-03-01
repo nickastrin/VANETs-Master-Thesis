@@ -23,20 +23,20 @@ void RsuHandler::initialize(int stage)
         threshold = 30;
         flushed = 20;
 
-        maxHops = 55;       // Default maximum ttl
+        maxHops = 120;       // Default maximum ttl
         lastUpdated = simTime();
 
         // Simulation variables
         unit = UnitType::RSU;
         caching = CachingPolicy::FIFO;
         centrality = CentralityType::DEGREE;
-        origin = OriginPolicy::PUSH;
+        initializeVariables();
 
         // Network information
         originIp = 0;
         rsuCount = 0;
         // Highest centrality RSU info
-        pushRsu = 0;
+        //pushRsu = 0;
         highestCentrality = 0;
 
         thresholdControl();
@@ -79,8 +79,6 @@ void RsuHandler::collectingMsg(Message *wsm)
             else if (centrality == CentralityType::BETWEENNESS)
             {
                 result = betweenness;
-                if (myId == 34)
-                    debugPrint(routingTable);
                 std::cout << "Node " << myId << " betweenness centrality is " << result << endl;
             }
         }
@@ -111,6 +109,38 @@ void RsuHandler::collectingMsg(Message *wsm)
         info->setRoute(route);
 
         std::cout << "RSU " << myId << " completed centrality calculation at " << msgTime << endl;
+
+        std::string centType = "";
+        float val;
+
+        if (centrality == CentralityType::DEGREE)
+        {
+            centType = "Degree";
+            val = degree;
+        }
+        else if (centrality == CentralityType::CLOSENESS)
+        {
+            centType = "Closeness";
+            val = closeness;
+        }
+        else if (centrality == CentralityType::BETWEENNESS)
+        {
+            centType = "Betweenness";
+            val = betweenness;
+        }
+    
+
+        if (simTime() > 225)
+        {
+            std::ofstream file;
+            file.open("centrality_time.csv", std::ios_base::app);
+            file << std::to_string(rsuCount) + "," + 
+                        std::to_string(idtmp) + "," +
+                        std::to_string(msgTime.dbl()) + ","  +
+                        centType + "," + 
+                        std::to_string(val) + "\n";
+            file.close();
+        }
 
         simtime_t time = simTime() + 1 + uniform(0.01, 0.5);
         std::cout << "RSU " << myId << " sending centrality info to origin at " << time << endl;
@@ -147,8 +177,10 @@ void RsuHandler::onWSM(BaseFrame1609_4 *frame)
 
     if (accept)
     {
-        // Change RSU color to gold
-        findHost()->getDisplayString().setTagArg("i", 1, "gold");
+        findHost()->getDisplayString().setTagArg("i", 1, "purple");
+
+        if (wsm->getType() == MessageType::RSU_INIT_REQ && wsm->getSource() == 20)
+            std::cout << "G O T   I T\n";
 
         UnitHandler::onWSM(frame);
     }
@@ -164,7 +196,7 @@ void RsuHandler::onOriginInitReq(Message *wsm)
     {
         originIp = wsm->getSource();
         rsuCount = wsm->getMaxHops();
-        pushRsu = myId;
+        //pushRsu = myId;
 
         // Create your own RSU route discovery request
         createRouteReq(MessageType::RSU_INIT_REQ, rsuCount, true);
@@ -190,7 +222,14 @@ void RsuHandler::onRsuInitReply(Message *wsm)
         handleRouteTraversal(wsm);
     // TODO: Remove when finished
     else
-        debugPrint(rsuRouting);
+    {
+        if (rsuRouting.size() == rsuCount && !temp)
+        {
+            std::cout << "Found RSU Routing: " << myId << endl;
+            temp = true;
+        }
+    }
+        
 }
 
 
@@ -199,6 +238,13 @@ void RsuHandler::onOriginCentralityReq(Message *wsm)
     std::cout << "RSU " << myId << " received origin centrality request, at " << simTime() << endl;
     if (centrality != wsm->getCentrality())
         centrality = wsm->getCentrality();
+
+    idtmp++;
+
+    wsm->setSenderAddress(myId);
+    wsm->setSenderPosition(curPosition);
+    
+    scheduleAt(simTime() + 0.1 + uniform(0.01, 0.5), wsm->dup());
     
     // Create centrality request
     Message *request = new Message();
@@ -224,7 +270,8 @@ void RsuHandler::onOriginCentralityReq(Message *wsm)
         request->setRoute(route);
     }
 
-    simtime_t time = simTime() + 5 + uniform(0.01, 0.2);
+    simtime_t time = simTime() + 5 + uniform(0.01, 3);
+    requestTime = time;
     std::cout << "RSU " << myId << " sending centrality request at " << time << endl;
     scheduleAt(time, request->dup());
 
@@ -237,7 +284,7 @@ void RsuHandler::onOriginCentralityReq(Message *wsm)
     collect->setCentrality(centrality);
     collect->setState(CurrentState::COLLECTING);
 
-    scheduleAt(simTime() + 30, collect);
+    scheduleAt(simTime() + 45, collect);
     delete(request);
 }
 
@@ -280,7 +327,10 @@ void RsuHandler::onPullReply(Message *wsm)
 {
     // If not meant for you, forward
     if (wsm->getDest() != myId)
+    {
+        std::cout << "RSU " << myId << " received pull reply, forwarding to " << wsm->getDest() << endl;
         handleRouteTraversal(wsm, true);
+    }
 
     else
     {
@@ -325,9 +375,9 @@ void RsuHandler::onPullReply(Message *wsm)
                             reply->setSegmentNumber(j);
                             reply->setContent(segmentedContent.c_str());
 
-                            time = simTime() + j * delay + uniform(0.01, 0.2);
-                            //std::cout << "RSU " << myId << " sending segmented content to " << i->source << " with Content ID " << wsm->getContentId();
-                            //std::cout << " and segment number " << j << " at " << time << endl;
+                            time = simTime() + j * delay + uniform(0.01, 0.5);
+                            std::cout << "RSU " << myId << " sending segmented content to " << i->source << " with Content ID " << wsm->getContentId();
+                            std::cout << " and segment number " << j << " at " << time << endl;
                             scheduleAt(time, reply->dup());
 
                             // Segment pending acknowledgement
@@ -340,8 +390,8 @@ void RsuHandler::onPullReply(Message *wsm)
                     // Else, just send content
                     else
                     {
-                        time = simTime() + 1 + uniform(0.01, 0.2);
-                        //std::cout << "RSU " << myId << " sending content with Content Id " << wsm->getContentId() << " to " << i->source << " at " << time << endl;
+                        time = simTime() + 1 + uniform(0.01, 0.5);
+                        std::cout << "RSU " << myId << " sending content with Content Id " << wsm->getContentId() << " to " << i->source << " at " << time << endl;
                         reply->setContent(content.c_str());
                         scheduleAt(time, reply->dup());
 
@@ -360,26 +410,46 @@ void RsuHandler::onPullReply(Message *wsm)
 void RsuHandler::onPushML(Message *wsm)
 {
     // Extract info
-    pushRsu = wsm->getDest();
+    //pushRsu = wsm->getDest();
+
+    long address = wsm->getDest();
+    if (lastUpdateRsu - simTime() > 75)
+        centralVec.clear();
+
+    if (!std::binary_search(centralVec.begin(), centralVec.end(), address))
+    {
+        centralVec.push_back(address);
+        lastUpdateRsu = simTime();
+    }
 
     // Forward to reach other RSUs
     wsm->setSenderAddress(myId);
     wsm->setSenderPosition(curPosition);
 
-    scheduleAt(simTime() + 0.1 + uniform(0.01, 0.2), wsm->dup()); 
+    scheduleAt(simTime() + 0.1 + uniform(0.01, 0.5), wsm->dup()); 
 }
 
 void RsuHandler::onPushCentrality(Message *wsm)
 {
     // Extract info
-    pushRsu = wsm->getDest();
+    //pushRsu = wsm->getDest();
+    long address = wsm->getDest();
+    if (lastUpdateRsu - simTime() > 75)
+        centralVec.clear();
+
+    if (!std::binary_search(centralVec.begin(), centralVec.end(), address))
+    {
+        centralVec.push_back(address);
+        lastUpdateRsu = simTime();
+    }
+
     highestCentrality = wsm->getMsgInfo();
 
     // Forward to reach other RSUs
     wsm->setSenderAddress(myId);
     wsm->setSenderPosition(curPosition);
 
-    scheduleAt(simTime() + 0.1 + uniform(0.01, 0.2), wsm->dup());
+    scheduleAt(simTime() + 0.1 + uniform(0.01, 0.5), wsm->dup());
 }
 
 // ------------- Regular Messages ------------ //
@@ -389,7 +459,7 @@ void RsuHandler::onBroadcast(Message *wsm)
     // Extract info
     std::string content = extractContent(wsm);
 
-    if (!content.empty() && origin == OriginPolicy::PUSH)
+    if (!content.empty())
     {
         simtime_t time;
 
@@ -430,9 +500,9 @@ void RsuHandler::onBroadcast(Message *wsm)
 
             for (int i = 1; i <= segments; i++)
             {
-                time = simTime() + i * delay + uniform(0.01, 0.2);
-                //std::cout << "RSU " << myId << " pushing segmented content to " << originIp << " with Content ID " << wsm->getContentId();
-                //std::cout << " and segment number " << i << " at " << time << endl;
+                time = simTime() + i * delay + uniform(0.01, 0.5);
+                std::cout << "RSU " << myId << " pushing segmented content to " << originIp << " with Content ID " << wsm->getContentId();
+                std::cout << " and segment number " << i << " at " << time << endl;
 
                 // Break into smaller strings
                 segmentedContent = content[i - 1];
@@ -451,8 +521,8 @@ void RsuHandler::onBroadcast(Message *wsm)
 
         else
         {   
-            time = simTime() + 1 + uniform(0.01, 0.2);
-            //std::cout << "RSU " << myId << " sending content with Content Id " << wsm->getContentId() << " to " << originIp << " at " << time << endl;
+            time = simTime() + 1 + uniform(0.01, 0.5);
+            std::cout << "RSU " << myId << " sending content with Content Id " << wsm->getContentId() << " to " << originIp << " at " << time << endl;
 
             push->setContent(content.c_str());
             scheduleAt(time, push->dup());
@@ -468,7 +538,7 @@ void RsuHandler::onBroadcast(Message *wsm)
     wsm->setSenderAddress(myId);
     wsm->setSenderPosition(curPosition);
 
-    scheduleAt(simTime() + 1 + uniform(0.01, 0.2), wsm->dup());
+    scheduleAt(simTime() + 1 + uniform(0.01, 0.5), wsm->dup());
 }
 
 void RsuHandler::onRequest(Message *wsm)
@@ -477,7 +547,10 @@ void RsuHandler::onRequest(Message *wsm)
     bool multimedia = wsm->getMultimedia();
 
     if (multimedia)
+    {
+        std::cout << "RSU " << myId << " searching for multimedia content with Content Id " << wsm->getContentId() << endl;
         found = contentSearch(wsm, multimediaData, false);
+    }
     else
         found = contentSearch(wsm, roadData, false);
 
@@ -488,10 +561,30 @@ void RsuHandler::onRequest(Message *wsm)
         long source = myId;
         long dest;
 
+        /*
         if (pushRsu == myId)
             dest = originIp;
         else    
             dest = pushRsu;
+            */
+
+        if (centralVec.empty() || std::binary_search(centralVec.begin(), centralVec.end(), myId))
+            dest = originIp;
+        else
+        {
+            int maxHops = 9999;
+            for (auto it = centralVec.begin(); it != centralVec.end(); it++)
+            {
+                auto it2 = rsuRouting.find(*it);
+                pathDeque route = it2->second;
+
+                if (route.size() < maxHops)
+                {
+                    maxHops = route.size();
+                    dest = *it;
+                }
+            }
+        }
         
         createPullReq(contentId, source, dest, multimedia);
         pendingReply.push_back(MessageData(wsm));
@@ -505,7 +598,8 @@ void RsuHandler::onDegreeReply(Message *wsm)
     if (wsm->getDest() == myId)
     {
         degree++;
-        msgTime = simTime();
+        if (msgTime < simTime() - requestTime)
+            msgTime = simTime() - requestTime;
         //std::cout << "node " << wsm->getSource() << endl;
     }
 
@@ -514,7 +608,7 @@ void RsuHandler::onDegreeReply(Message *wsm)
         wsm->setSenderAddress(myId);
         wsm->setSenderPosition(curPosition);
 
-        scheduleAt(simTime() + 0.1 + uniform(0.01, 0.2), wsm->dup());
+        scheduleAt(simTime() + 0.1 + uniform(0.01, 0.5), wsm->dup());
     }
 }
 
@@ -523,7 +617,8 @@ void RsuHandler::onBetweennessReply(Message *wsm)
     if (wsm->getDest() == myId)
     {
         betweenness += wsm->getMsgInfo();
-        msgTime = simTime();
+        if (msgTime < simTime() - requestTime)
+            msgTime = simTime() - requestTime;
     }
 
     else
@@ -531,7 +626,7 @@ void RsuHandler::onBetweennessReply(Message *wsm)
         wsm->setSenderAddress(myId);
         wsm->setSenderPosition(curPosition);
 
-        scheduleAt(simTime() + 0.1 + uniform(0.01, 0.2), wsm->dup());
+        scheduleAt(simTime() + 0.1 + uniform(0.01, 0.5), wsm->dup());
     }
 }
 
@@ -565,8 +660,19 @@ void RsuHandler::createPullReq(std::string contentId, long source,
     request->setContentId(contentId.c_str());
     request->setMultimedia(multimedia);
 
-    simtime_t time = simTime() + 1 + uniform(0.01, 0.2);
-    //std::cout << "RSU " << myId << " sending pull request to " << dest << " at " << time << endl;
+    simtime_t time = simTime() + 1 + uniform(0.01, 0.5);
+    std::cout << "RSU " << myId << " sending pull request to " << dest << " at " << time << endl;
 
     scheduleAt(time, request);
+}
+
+
+void RsuHandler::initializeVariables()
+{
+    int id = getParentModule()->par("scenarioId");
+
+    if (id % 2 == 0)
+        origin = OriginPolicy::PULL;
+    else
+        origin = OriginPolicy::PUSH;
 }

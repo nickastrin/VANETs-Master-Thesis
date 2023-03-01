@@ -29,7 +29,8 @@ namespace veins
             void onPushContent(Message *wsm) override;
 
             void createPushContent();
-            void sendContent(Message *wsm, storageDict &storage, bool multimedia);
+            void sendContent(Message *wsm, storageDict &storage, bool multimedia, float centralDelay);
+            void initializeVariables();
         protected:
             CentralityType centrality;
             Scenario simulation;
@@ -39,5 +40,6 @@ namespace veins
             float highestCentrality;
 
             std::map<long, Coord> rsuPositions;
+            std::vector<long> centralVec;
     };
 }

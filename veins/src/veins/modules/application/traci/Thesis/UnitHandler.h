@@ -5,6 +5,7 @@
 #include "veins/modules/application/traci/Thesis/Enums.h"
 
 #include <string.h>
+#include <sys/stat.h>
 #include <iterator>
 #include <vector>
 #include <deque>
@@ -156,7 +157,7 @@ namespace veins
             void onAcknowledgement(Message *wsm);
 
             bool receiveMessage(Message *wsm, routingDict &routing);
-            bool routingTableUpdate(pathDeque path, routingDict &routing);
+            bool routingTableUpdate(pathDeque path, routingDict &routing, bool origin = false);
             bool insertMessage(Message *wsm);
             bool messageMatch(Message *wsm, MessageData data);
             bool insertSegmented(Message *wsm);
@@ -219,6 +220,13 @@ namespace veins
 
             dataDeque segmentedMessages;
 
-            simtime_t msgTime;
+            simtime_t msgTime = 0;
+            simtime_t tstamp;
+            int scenarioId;
+            bool rec = false;
+            bool sec = false;
+            simtime_t recFirstTime = 0;
+            bool recFirst = false;
+            simtime_t requestTime = 0;
     };
 }

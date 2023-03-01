@@ -26,13 +26,19 @@ import org.car2x.veins.nodes.Scenario;
 
 network RSUExampleScenario extends Scenario
 {
+    parameters:
+        int id;
+        int content;
+        int rsuNumber;
     submodules:
-        origin[1]: Origin 
-        {   
-            @display("p=150,140;i=veins/sign/yellowdiamond;is=vs");
+        origin[1]: Origin {
+            scenarioId = id;
+            contentId = content;
+            rsuCount = rsuNumber;
+            @display("p=56,155;i=veins/sign/yellowdiamond;is=vs");
         }
-        rsu[4]: RSU 
-        {
-            @display("p=150,140;i=veins/sign/yellowdiamond;is=vs");
+        rsu[rsuNumber]: RSU {
+            scenarioId = id;
+            @display("p=205,140;i=veins/sign/yellowdiamond;is=vs");
         }
 }

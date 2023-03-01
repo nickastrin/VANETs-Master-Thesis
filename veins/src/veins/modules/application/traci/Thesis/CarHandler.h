@@ -34,10 +34,11 @@ namespace veins
             void onDegreeReply(Message *wsm) override;
             void onBetweennessReply(Message *wsm) override;
         
-            void createRequest(std::string contentId, bool multimedia);
+            void createRequest(std::string contentId, bool multimedia, simtime_t time);
         protected:
             int currentSubscribedServiceId;
             bool sentMessage; 
             simtime_t lastDroveAt;
+            simtime_t tstamp;
     };
 }

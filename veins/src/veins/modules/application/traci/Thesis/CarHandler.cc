@@ -24,7 +24,7 @@ void CarHandler::initialize(int stage)
         threshold = 30;
         flushed = 20;
 
-        maxHops = 55;       // Default maximum ttl
+        maxHops = 120;       // Default maximum ttl
 
         // Misc car variables
         currentSubscribedServiceId = -1;
@@ -70,6 +70,7 @@ void CarHandler::handlePositionUpdate(cObject *obj)
             // Define content
             wsm->setContentId(mobility->getRoadId().c_str());
             wsm->setContent(mobility->getRoadId().c_str());
+            wsm->setMultimedia(false);
 
             // The host is standing still due to crash
             if (dataOnSch) 
@@ -88,20 +89,20 @@ void CarHandler::handlePositionUpdate(cObject *obj)
         lastDroveAt = simTime();
         sentMessage = false;
     }
-
-/*
-    if (simTime() == 120 && myId == 58)
-        createRequest("5", false);*/
 }
 
 // -------------- Self Message --------------- //
 
 void CarHandler::initializingMsg()
 {
+    cModule *mod;
     // The first node in the simulation is responsible writing the data to file
-    cModule *mod = getParentModule()->getModuleByPath("node[0]");
+    if (simTime() < 250)
+        mod = getParentModule()->getModuleByPath("node[0]");
+    else 
+        mod = getParentModule()->getModuleByPath("node[70]");
     if (mod == nullptr)
-        throw cRuntimeError("Could not find module with path: node[0]");
+        throw cRuntimeError("Could not find module with path specified");
 
     long initId = mod->getId() + 2;
     if (myId == initId)
@@ -112,6 +113,133 @@ void CarHandler::initializingMsg()
         // Define properties
         write->setState(CurrentState::WRITING);
         scheduleAt(75, write);
+    }
+
+    cModule *origin = getParentModule()->getModuleByPath("origin[0]");
+    if (origin == nullptr)
+        throw cRuntimeError("Could not find module with path: origin[0]");
+
+    int id = origin->par("scenarioId");
+    int sc = origin->par("contentId");
+    int rsuCount = origin->par("rsuCount");
+    int requestVehicle;
+
+    switch (id)
+    {
+        case 1 ... 8:
+            tstamp = 130;
+            requestVehicle = 178;
+            break;
+        case 9 ... 16:
+            tstamp = 210;
+            requestVehicle = 376;
+            break;
+        case 17 ... 24:
+            tstamp = 290;
+            requestVehicle = 394;
+            break;
+    }
+
+    std::string simType;
+    std::string centType;
+    std::string origType;
+
+    if (id % 8 == 1)
+    {
+        simType = "ML";
+        centType = "Degree";
+        origType = "Push";
+    }
+    else if (id % 8 == 2)
+    {
+        simType = "ML";
+        centType = "Degree";
+        origType = "Pull";
+    }
+    else if (id % 8 == 3)
+    {
+        simType = "Manual";
+        centType = "Degree";
+        origType = "Push";
+    }
+    else if (id % 8 == 4)
+    {
+        simType = "Manual";
+        centType = "Degree";
+        origType = "Pull";
+    }
+    else if (id % 8 == 5)
+    {
+        simType = "Manual";
+        centType = "Closeness";
+        origType = "Push";
+    }
+    else if (id % 8 == 6)
+    {
+        simType = "Manual";
+        centType = "Closeness";
+        origType = "Pull";
+    }
+    else if (id % 8 == 7)
+    {
+        simType = "Manual";
+        centType = "Betweenness";
+        origType = "Push";
+    }
+    else if (id % 8 == 0)
+    {
+        simType = "Manual";
+        centType = "Betweenness";
+        origType = "Pull";
+    }
+
+    simtime_t time = tstamp + uniform(0.01, 0.5);
+
+    if (myId == requestVehicle)
+    {
+        std::ofstream file;
+        struct stat buffer;   
+        if (stat("response_time.csv", &buffer) != 0)
+        {
+            file.open("response_time.csv", std::ios_base::app);
+            file << "RSU Count, ScenarioId, ContentId, Timestamp, Completion, REQ/REP, SimType, Centrality, OriginPolicy\n";
+            file.close();
+        }
+        
+        std::cout << "Requesting content " << sc << std::endl;
+        file.open("response_time.csv", std::ios_base::app);
+
+        if (sc == 5 || sc == 05)
+        {
+            createRequest("5", true, time);
+            file << std::to_string(rsuCount) + "," + 
+                        std::to_string(id) + "," +
+                        "5" + "," +
+                        std::to_string(time.dbl()) + ","  + 
+                        "-" + "," +
+                        "REQ" + "," + 
+                        simType + "," +
+                        centType + "," + 
+                        origType + "\n";
+        }
+        else if (sc == 4 || sc == 04)
+        {
+            createRequest("4", true, time + 5);
+            file << std::to_string(rsuCount) + "," + 
+                        std::to_string(id) + "," +
+                        "4" + "," +
+                        std::to_string(time.dbl() + 5) + ","  + 
+                        "-" + "," +
+                        "REQ" + "," + 
+                        simType + "," +
+                        centType + "," + 
+                        origType + "\n";
+        }
+        else 
+            std::cout << "Wrong content id" << std::endl;
+            
+        
+        file.close();
     }
 }
 
@@ -150,7 +278,7 @@ void CarHandler::writingMsg()
     populateWSM(write);
     // Define properties
     write->setState(CurrentState::WRITING);
-    scheduleAt(simTime() + 60, write);
+    scheduleAt(simTime() + 75, write);
 }
 
 // --------------- On Message ---------------- //
@@ -181,12 +309,8 @@ void CarHandler::onWSM(BaseFrame1609_4* frame)
 
     if (accept)
     {
-        // Change RSU color to gold
+        // Change RSU color to green
         findHost()->getDisplayString().setTagArg("i", 1, "green");
-
-        if (wsm->getSource() == 34)
-            findHost()->getDisplayString().setTagArg("i", 1, "cyan");
-            
         UnitHandler::onWSM(frame);
     }
 }
@@ -207,7 +331,7 @@ void CarHandler::onBroadcast(Message *wsm)
     wsm->setSenderAddress(myId);
     wsm->setSenderPosition(curPosition);
 
-    scheduleAt(simTime() + 1 + uniform(0.01, 0.2), wsm->dup());
+    scheduleAt(simTime() + 1 + uniform(0.01, 0.5), wsm->dup());
 }
 
 void CarHandler::onRequest(Message *wsm)
@@ -227,7 +351,7 @@ void CarHandler::onRequest(Message *wsm)
         wsm->setSenderAddress(myId);
         wsm->setSenderPosition(curPosition);
 
-        scheduleAt(simTime() + 0.1 + uniform(0.01, 0.2), wsm->dup());
+        scheduleAt(simTime() + 0.1 + uniform(0.01, 0.5), wsm->dup());
     }
 }
 
@@ -238,7 +362,7 @@ void CarHandler::onDegreeReply(Message *wsm)
     wsm->setSenderAddress(myId);
     wsm->setSenderPosition(curPosition);
 
-    scheduleAt(simTime() + 0.1 + uniform(0.01, 0.2), wsm->dup());
+    scheduleAt(simTime() + 0.1 + uniform(0.01, 0.5), wsm->dup());
 }
 
 void CarHandler::onBetweennessReply(Message *wsm)
@@ -246,12 +370,12 @@ void CarHandler::onBetweennessReply(Message *wsm)
     wsm->setSenderAddress(myId);
     wsm->setSenderPosition(curPosition);
 
-    scheduleAt(simTime() + 0.1 + uniform(0.01, 0.2), wsm->dup());
+    scheduleAt(simTime() + 0.1 + uniform(0.01, 0.5), wsm->dup());
 }
 
 // -------------- Auxilary ------------------- //
 
-void CarHandler::createRequest(std::string contentId, bool multimedia)
+void CarHandler::createRequest(std::string contentId, bool multimedia, simtime_t time)
 {
     // Create request message
     Message *wsm = new Message();
@@ -266,8 +390,6 @@ void CarHandler::createRequest(std::string contentId, bool multimedia)
     wsm->setContentId(contentId.c_str());
     wsm->setMultimedia(multimedia);
 
-    // Send request
-    simtime_t time = simTime() + 1 + uniform(0.01, 0.2);
     std::cout << "Node " << myId << ", sending request at " << time << std::endl;
     scheduleAt(time, wsm);
 }

@@ -42,6 +42,7 @@ namespace veins
 
             void createPullReq(std::string contentId, long source, 
                 long dest, bool multimedia);
+            void initializeVariables();
         
         protected:
             CentralityType centrality;
@@ -52,5 +53,9 @@ namespace veins
             float highestCentrality;
 
             dataDeque pendingReply;
+            bool temp = false;
+            int idtmp = 0;
+            std::vector<long> centralVec;
+            simtime_t lastUpdateRsu = 0;
     };
 }

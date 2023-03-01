@@ -154,6 +154,8 @@ namespace veins {
  *     LAddress::L2Type dest;
  *     Coord senderPosition;
  * 
+ *     Coord initPosition;
+ * 
  *     // Message properties
  *     MessageType type = MessageType::BROADCAST;
  *     CurrentState state = CurrentState::SENDING;
@@ -167,6 +169,7 @@ namespace veins {
  *     // Message data
  *     float msgInfo = 0;
  *     simtime_t ackInfo;
+ *     simtime_t msgTime;
  * 
  *     // Route variables
  *     Deque route;
@@ -189,6 +192,7 @@ class VEINS_API Message : public ::veins::BaseFrame1609_4
     LAddress::L2Type source;
     LAddress::L2Type dest;
     Coord senderPosition;
+    Coord initPosition;
     MessageType type = MessageType::BROADCAST;
     CurrentState state = CurrentState::SENDING;
     CentralityType centrality = static_cast<CentralityType>(-1);
@@ -198,6 +202,7 @@ class VEINS_API Message : public ::veins::BaseFrame1609_4
     int maxHops = 2;
     float msgInfo = 0;
     omnetpp::simtime_t ackInfo = SIMTIME_ZERO;
+    omnetpp::simtime_t msgTime = SIMTIME_ZERO;
     Deque route;
     Deque previousNodes;
     omnetpp::opp_string contentId = "";
@@ -241,6 +246,9 @@ class VEINS_API Message : public ::veins::BaseFrame1609_4
     virtual const Coord& getSenderPosition() const;
     virtual Coord& getSenderPositionForUpdate() { return const_cast<Coord&>(const_cast<Message*>(this)->getSenderPosition());}
     virtual void setSenderPosition(const Coord& senderPosition);
+    virtual const Coord& getInitPosition() const;
+    virtual Coord& getInitPositionForUpdate() { return const_cast<Coord&>(const_cast<Message*>(this)->getInitPosition());}
+    virtual void setInitPosition(const Coord& initPosition);
     virtual MessageType getType() const;
     virtual void setType(MessageType type);
     virtual CurrentState getState() const;
@@ -259,6 +267,8 @@ class VEINS_API Message : public ::veins::BaseFrame1609_4
     virtual void setMsgInfo(float msgInfo);
     virtual omnetpp::simtime_t getAckInfo() const;
     virtual void setAckInfo(omnetpp::simtime_t ackInfo);
+    virtual omnetpp::simtime_t getMsgTime() const;
+    virtual void setMsgTime(omnetpp::simtime_t msgTime);
     virtual const Deque& getRoute() const;
     virtual Deque& getRouteForUpdate() { return const_cast<Deque&>(const_cast<Message*>(this)->getRoute());}
     virtual void setRoute(const Deque& route);

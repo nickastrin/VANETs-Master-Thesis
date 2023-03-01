@@ -65,6 +65,8 @@ packet Message extends BaseFrame1609_4
     LAddress::L2Type dest;
     Coord senderPosition;
 
+    Coord initPosition;
+
     // Message properties
     MessageType type = MessageType::BROADCAST;
     CurrentState state = CurrentState::SENDING;
@@ -78,6 +80,7 @@ packet Message extends BaseFrame1609_4
     // Message data
     float msgInfo = 0;
     simtime_t ackInfo;
+    simtime_t msgTime;
 
     // Route variables
     Deque route;

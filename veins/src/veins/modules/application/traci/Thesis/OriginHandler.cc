@@ -11,21 +11,17 @@ void OriginHandler::initialize(int stage)
 {
     // Initializing variables
     DemoBaseApplLayer::initialize(stage);
-
     if (stage == 0)
     {
         // Simulation variables
         unit = UnitType::ORIGIN;
-        simulation = Scenario::MACHINE_LEARNING;
         caching = CachingPolicy::FIFO;
-        centrality = CentralityType::DEGREE;
-        origin = OriginPolicy::PUSH;
+
+        initializeVariables();
 
         // Rsu centrality variables
-        pushRsu = 0;
+        //pushRsu = 0;
         highestCentrality = 0;
-        // Number of RSUs in simulation
-        rsuCount = 4;
 
         // Create initializing self message
         Message *init = new Message();
@@ -77,11 +73,11 @@ void OriginHandler::initializingMsg()
     populateWSM(test_v2);
     test_v2->setContentId("5");
     test_v2->setContent("Rnd");
-    test_v2->setMultimedia(false);
+    test_v2->setMultimedia(true);
     test_v2->setSegments(3);
     content = ContentWrapper(test_v2);
     id = "5";
-    roadData[id] = content;
+    multimediaData[id] = content;
 }
 
 void OriginHandler::requestingMsg()
@@ -101,6 +97,37 @@ void OriginHandler::requestingMsg()
     request->setType(MessageType::ORIGIN_CENTRALITY_REQ);
 
     std::cout << "Origin " << myId << " requesting centralities, at " << simTime() + 5 << endl;
+
+    std::ofstream file;
+    struct stat buffer;   
+    if (stat("centrality_time.csv", &buffer) != 0)
+    {
+        file.open("centrality_time.csv", std::ios_base::app);
+        file << "RSU Count, ID, Timestamp, Centrality, Value\n";
+        file.close();
+    }
+
+    std::string centType = "";
+
+    if (centrality == CentralityType::DEGREE)
+        centType = "Degree";
+    else if (centrality == CentralityType::CLOSENESS)
+        centType = "Closeness";
+    else if (centrality == CentralityType::BETWEENNESS)
+        centType = "Betweenness";
+        
+    if (simTime() > 225)
+    {
+        file.open("centrality_time.csv", std::ios_base::app);
+        file << std::to_string(rsuCount) + "," + 
+                    std::to_string(myId) + "," +
+                    std::to_string(simTime().dbl() + 5) + ","  + 
+                    "REQ" + "," + 
+                    centType + "," + 
+                    "-" + "\n";
+        file.close();
+    }
+
     highestCentrality = 0;
     scheduleAt(simTime() + 5, request);
 
@@ -109,18 +136,20 @@ void OriginHandler::requestingMsg()
     populateWSM(collect);
     // Define message properties
     collect->setState(CurrentState::COLLECTING);
-    scheduleAt(simTime() + 40, collect); 
+    scheduleAt(simTime() + 55, collect); 
     
     // Create new requesting self message
     Message *wsm = new Message();
     populateWSM(wsm);
     // Define message properties
     wsm->setState(CurrentState::REQUESTING);
-    scheduleAt(simTime() + 60, wsm);
+    scheduleAt(simTime() + 80, wsm);
 }
 
 void OriginHandler::collectingMsg(Message *wsm)
 {
+    float delay = 0.5;
+
     // Create new message
     Message *info = new Message();
     populateWSM(info);
@@ -128,16 +157,24 @@ void OriginHandler::collectingMsg(Message *wsm)
     info->setSenderAddress(myId);
     info->setSenderPosition(curPosition);
     info->setSource(myId);
-    info->setDest(pushRsu);
+    //info->setDest(pushRsu);
     // Define message properties
     info->setType(MessageType::PUSH_CENTRALITY);
     info->setMsgInfo(highestCentrality);
     info->setMaxHops(rsuCount);
     info->setOriginMessage(true);
 
-    scheduleAt(simTime() + 0.1 + uniform(0.01, 0.2), info);
+    for (auto it = centralVec.begin(); it != centralVec.end(); ++it)
+    {
+        info->setDest(*it);
+        scheduleAt(simTime() + delay + uniform(0.01, 0.5), info->dup());
+        delay += 0.2;
+    }
 
-    if (origin == OriginPolicy::PUSH && pushRsu != 0)
+    //scheduleAt(simTime() + 0.1 + uniform(0.01, 0.5), info);
+
+    //if (origin == OriginPolicy::PUSH && pushRsu != 0)
+    if (origin == OriginPolicy::PUSH && !centralVec.empty())
         createPushContent();
     delete(wsm);
 }
@@ -155,8 +192,11 @@ void OriginHandler::extractingMsg()
         std::string word;
         std::vector<std::string> row;
 
+        centralVec.clear();
+
         while (getline(file, line))
         {
+            std::cout << "Line: " << line << endl;
             row.clear();
 
             std::stringstream s(line);
@@ -167,6 +207,8 @@ void OriginHandler::extractingMsg()
             double y = std::stod(row[1]);
             Coord centroidPos = Coord(x, y);
 
+            long address;
+
             double distance = 9999;
             for (auto it = rsuPositions.begin(); it != rsuPositions.end(); it++)
             {
@@ -174,30 +216,37 @@ void OriginHandler::extractingMsg()
                 if (temp < distance)
                 {
                     distance = temp;
-                    pushRsu = it->first;
+                    //pushRsu = it->first;
+                    address = it->first;
                 }
             }
 
-            std::cout << "Push RSU Id: " << pushRsu << endl;
+            std::cout << address << endl;
 
-            // Create new message
-            Message *info = new Message();
-            populateWSM(info);
-            // Define message identifiers
-            info->setSenderAddress(myId);
-            info->setSenderPosition(curPosition);
-            info->setSource(myId);
-            info->setDest(pushRsu);
-            // Define message properties
-            info->setType(MessageType::PUSH_ML);
-            info->setMaxHops(rsuCount);
-            info->setOriginMessage(true);
+            if (!std::binary_search(centralVec.begin(), centralVec.end(), address))
+            {
+                std::cout << "Push RSU Id: " << address << endl;
+                centralVec.push_back(address);
 
-            scheduleAt(simTime() + 0.1 + uniform(0.01, 0.2), info);
+                // Create new message
+                Message *info = new Message();
+                populateWSM(info);
+                // Define message identifiers
+                info->setSenderAddress(myId);
+                info->setSenderPosition(curPosition);
+                info->setSource(myId);
+                info->setDest(address);
+                // Define message properties
+                info->setType(MessageType::PUSH_ML);
+                info->setMaxHops(rsuCount);
+                info->setOriginMessage(true);
 
-            if (origin == OriginPolicy::PUSH && pushRsu != 0)
-                createPushContent();
+                scheduleAt(simTime() + 0.1 + uniform(0.01, 0.5), info);
+            }
         }
+
+        if (origin == OriginPolicy::PUSH && !centralVec.empty())
+            createPushContent();
 
         file.close();
 
@@ -236,8 +285,8 @@ void OriginHandler::onRsuInitReq(Message *wsm)
 {
     if (rsuPositions.find(wsm->getSource()) == rsuPositions.end())
     {
-        double x = wsm->getSenderPosition().x;
-        double y = wsm->getSenderPosition().y;
+        double x = wsm->getInitPosition().x;
+        double y = wsm->getInitPosition().y;
 
         rsuPositions[wsm->getSource()] = Coord(x, y);
     }
@@ -258,12 +307,22 @@ void OriginHandler::onOriginCentralityReply(Message *wsm)
     std::cout << "Origin " << myId << " received centrality reply from RSU " << wsm->getSource() << " at " << simTime() << endl;
     float data = wsm->getMsgInfo();
 
+    if (data == highestCentrality)
+    {
+        centralVec.push_back(wsm->getSource());
+        std::cout << "Additional push RSU: " << centralVec[0] << endl;
+    }
+
     if (data > highestCentrality)
     {
+        std::vector<long> newCentralVec;
+        newCentralVec.push_back(wsm->getSource());
+        centralVec = newCentralVec;
+
         highestCentrality = data;
-        pushRsu = wsm->getSource();
+        //pushRsu = wsm->getSource();
         std::cout << "Highest centrality: " << data << endl;
-        std::cout << "Push RSU: " << pushRsu << endl;
+        std::cout << "Push RSU: " << centralVec[0] << endl;
     }
 } 
 
@@ -289,7 +348,7 @@ void OriginHandler::onPullReply(Message *wsm)
 {
     // Forward to next in line
     handleRouteTraversal(wsm, true);
-    //std::cout << "Handling pull reply" << endl;
+    std::cout << "Handling pull reply" << endl;
 }
 
 void OriginHandler::onPushContent(Message *wsm)
@@ -303,80 +362,92 @@ void OriginHandler::onPushContent(Message *wsm)
         std::string content = extractContent(wsm);
         sendAcknowledgement(wsm);
 
-        bool pushContentToRsu = (pushRsu != 0) && (wsm->getSource() != pushRsu);
-        
+        //bool pushContentToRsu = (pushRsu != 0) && (wsm->getSource() != pushRsu);
+
+        bool pushContentToRsu = false;
+        if (!centralVec.empty())
+            pushContentToRsu = !std::binary_search(centralVec.begin(), centralVec.end(), wsm->getSource());
+
+
         if (!content.empty() && origin == OriginPolicy::PUSH && pushContentToRsu)
         {
             simtime_t time;
+            float sequenceDelay = 0.0;
 
-            auto it = rsuRouting.find(pushRsu);
-            pathDeque route = it->second;
-
-            // Create push message
-            Message *push = new Message();
-            populateWSM(push);
-            // Define message identifiers
-            push->setSource(myId);
-            push->setDest(pushRsu);
-            push->setSenderAddress(myId);
-            push->setSenderPosition(curPosition);
-            push->setRecipient(route.front());
-            // Define message properties
-            push->setMaxHops(route.size());
-            push->setOriginMessage(true);
-            push->setUpdatePaths(false);
-            push->setType(MessageType::PUSH_CONTENT);
-            push->setMultimedia(wsm->getMultimedia());
-            // Edit route details
-            route.pop_front();
-            push->setRoute(route);
-
-            // Define content details
-            int segments = wsm->getSegments();
-
-            push->setContentId(wsm->getContentId());
-            push->setSegments(segments);
-            push->setMultimedia(wsm->getMultimedia());
-
-            // If segmented, send in parts
-            if (segments > 1)
+            for (auto i = centralVec.begin(); i != centralVec.end(); i++)
             {
-                std::string segmentedContent;
-                float delay = 0.1;
+                auto it = rsuRouting.find(*i);
+                pathDeque route = it->second;
 
-                for (int i = 1; i <= segments; i++)
+                // Create push message
+                Message *push = new Message();
+                populateWSM(push);
+                // Define message identifiers
+                push->setSource(myId);
+                push->setDest(pushRsu);
+                push->setSenderAddress(myId);
+                push->setSenderPosition(curPosition);
+                push->setRecipient(route.front());
+                // Define message properties
+                push->setMaxHops(route.size());
+                push->setOriginMessage(true);
+                push->setUpdatePaths(false);
+                push->setType(MessageType::PUSH_CONTENT);
+                push->setMultimedia(wsm->getMultimedia());
+                // Edit route details
+                route.pop_front();
+                push->setRoute(route);
+
+                // Define content details
+                int segments = wsm->getSegments();
+
+                push->setContentId(wsm->getContentId());
+                push->setSegments(segments);
+                push->setMultimedia(wsm->getMultimedia());
+
+                // If segmented, send in parts
+                if (segments > 1)
                 {
-                    time = simTime() + i * delay + uniform(0.01, 0.2);
-                    //std::cout << "Origin " << myId << " sending segmented content to " << pushRsu << " with Content ID " << wsm->getContentId();
-                    //std::cout << " and segment number " << i << " at " << time << endl;
+                    std::string segmentedContent;
+                    float delay = 0.1;
 
-                    // Break into smaller strings
-                    segmentedContent = content[i - 1];
+                    for (int i = 1; i <= segments; i++)
+                    {
+                        time = simTime() + i * delay + sequenceDelay +  uniform(0.01, 0.5);
+                        std::cout << "Origin " << myId << " sending segmented content to " << pushRsu << " with Content ID " << wsm->getContentId();
+                        std::cout << " and segment number " << i << " at " << time << endl;
 
-                    push->setSegmentNumber(i);
-                    push->setContent(segmentedContent.c_str());
+                        // Break into smaller strings
+                        segmentedContent = content[i - 1];
+
+                        push->setSegmentNumber(i);
+                        push->setContent(segmentedContent.c_str());
+                        scheduleAt(time, push->dup());
+
+                        // Segment pending acknowledgement
+                        Message *repeat = push->dup();
+                        pendingAck.push_back(MessageData(repeat));            
+                        repeat->setState(CurrentState::REPEATING);
+                        scheduleAt(simTime() + 5 + i * delay + sequenceDelay, repeat);
+                    }
+                }
+
+                else
+                {   
+                    time = simTime() + 1 + sequenceDelay + uniform(0.01, 0.5);
+                    std::cout << "Origin " << myId << " sending content with Content Id " << wsm->getContentId() << " to " << pushRsu << " at " << time << endl;
+
+                    push->setContent(content.c_str());
                     scheduleAt(time, push->dup());
 
                     // Segment pending acknowledgement
-                    Message *repeat = push->dup();
-                    pendingAck.push_back(MessageData(repeat));            
-                    repeat->setState(CurrentState::REPEATING);
-                    scheduleAt(simTime() + 5 + i * delay, repeat);
+                    pendingAck.push_back(MessageData(push));
+                    push->setState(CurrentState::REPEATING);
+                    scheduleAt(simTime() + 5 + sequenceDelay, push);
                 }
-            }
 
-            else
-            {   
-                time = simTime() + 1 + uniform(0.01, 0.2);
-                //std::cout << "Origin " << myId << " sending content with Content Id " << wsm->getContentId() << " to " << pushRsu << " at " << time << endl;
+                sequenceDelay += 0.5;
 
-                push->setContent(content.c_str());
-                scheduleAt(time, push->dup());
-
-                // Segment pending acknowledgement
-                pendingAck.push_back(MessageData(push));
-                push->setState(CurrentState::REPEATING);
-                scheduleAt(simTime() + 5, push);
             }
         }
     }
@@ -386,33 +457,40 @@ void OriginHandler::onPushContent(Message *wsm)
 
 void OriginHandler::createPushContent()
 {
-    long id = pushRsu;
-    auto it = rsuRouting.find(id);
-    pathDeque route = it->second;
+    float delay = 0.0;
+    for (auto i = centralVec.begin(); i != centralVec.end(); i++)
+    {
+        //long id = pushRsu;
+        long id = *i;
+        auto it = rsuRouting.find(id);
+        pathDeque route = it->second;
 
-    // Create content message
-    Message *push = new Message();
-    populateWSM(push);
-    // Define message identifiers
-    push->setSource(myId);
-    push->setDest(id);
-    push->setSenderAddress(myId);
-    push->setSenderPosition(curPosition);
-    push->setRecipient(route.front());
-    // Define message details
-    push->setMaxHops(route.size());
-    push->setOriginMessage(true);
-    push->setUpdatePaths(false);
-    push->setType(MessageType::PUSH_CONTENT);
-    // Edit route
-    route.pop_front();
-    push->setRoute(route);
-    
-    sendContent(push, roadData, false);
-    sendContent(push, multimediaData, true);
+        // Create content message
+        Message *push = new Message();
+        populateWSM(push);
+        // Define message identifiers
+        push->setSource(myId);
+        push->setDest(id);
+        push->setSenderAddress(myId);
+        push->setSenderPosition(curPosition);
+        push->setRecipient(route.front());
+        // Define message details
+        push->setMaxHops(route.size());
+        push->setOriginMessage(true);
+        push->setUpdatePaths(false);
+        push->setType(MessageType::PUSH_CONTENT);
+        // Edit route
+        route.pop_front();
+        push->setRoute(route);
+        
+        sendContent(push, roadData, false, delay);
+        sendContent(push, multimediaData, true, delay);
+
+        delay += 0.5;
+    }
 }
 
-void OriginHandler::sendContent(Message *wsm, storageDict &storage, bool multimedia)
+void OriginHandler::sendContent(Message *wsm, storageDict &storage, bool multimedia, float centralDelay)
 {
     int segments; 
     simtime_t time;
@@ -437,10 +515,10 @@ void OriginHandler::sendContent(Message *wsm, storageDict &storage, bool multime
 
             for (int j = 1; j <= segments; j++)
             {
-                time = simTime() + j * delay + 2 + uniform(0.01, 0.2);
+                time = simTime() + j * delay + centralDelay + 2 + uniform(0.01, 0.5);
 
-                //std::cout << "Origin " << myId << " pushing segmented content to RSU " << pushRsu;
-                //std::cout << " segment number " << j << " at " << time << endl;
+                std::cout << "Origin " << myId << " pushing segmented content to RSU " << wsm->getDest();
+                std::cout << " segment number " << j << " at " << time << endl;
 
                 // Break info in smaller parts
                 segmentedContent = i->second.content[j - 1];
@@ -453,14 +531,14 @@ void OriginHandler::sendContent(Message *wsm, storageDict &storage, bool multime
                 Message *repeat = wsm->dup();
                 pendingAck.push_back(MessageData(repeat));            
                 repeat->setState(CurrentState::REPEATING);
-                scheduleAt(simTime() + 5 + j * delay, repeat);
+                scheduleAt(simTime() + 5 + centralDelay + j * delay, repeat);
             }
         }
 
         else 
         {
-            time = simTime() + 2 + uniform(0.01, 0.2);
-            //std::cout << "Origin " << myId << " pushing content to RSU " << pushRsu << " at " << time << endl;
+            time = simTime() + 2 + centralDelay + uniform(0.01, 0.5);
+            std::cout << "Origin " << myId << " pushing content to RSU " << wsm->getDest() << " at " << time << endl;
 
             wsm->setContent(i->second.content.c_str());
             scheduleAt(time, wsm->dup());
@@ -469,7 +547,163 @@ void OriginHandler::sendContent(Message *wsm, storageDict &storage, bool multime
             Message *repeat = wsm->dup();
             repeat->setState(CurrentState::REPEATING);
             pendingAck.push_back(MessageData(repeat));
-            scheduleAt(simTime() + 5, repeat);
+            scheduleAt(simTime() + centralDelay + 5, repeat);
         }
     }
+}
+
+void OriginHandler::initializeVariables()
+{
+    int id = getParentModule()->par("scenarioId");
+
+    switch(id)
+    {
+        case 1:
+            simulation = Scenario::MACHINE_LEARNING;
+            centrality = CentralityType::DEGREE;
+            origin = OriginPolicy::PUSH;
+            tstamp = 120;
+            break;
+        case 2:
+            simulation = Scenario::MACHINE_LEARNING;
+            centrality = CentralityType::DEGREE;
+            origin = OriginPolicy::PULL;
+            tstamp = 120;
+            break;
+        case 3:
+            simulation = Scenario::MANUAL_CENTRALITY;
+            centrality = CentralityType::DEGREE;
+            origin = OriginPolicy::PUSH;
+            tstamp = 120;
+            break;
+        case 4: 
+            simulation = Scenario::MANUAL_CENTRALITY;
+            centrality = CentralityType::DEGREE;
+            origin = OriginPolicy::PULL;
+            tstamp = 120;
+            break;
+        case 5:
+            simulation = Scenario::MANUAL_CENTRALITY;
+            centrality = CentralityType::CLOSENESS;
+            origin = OriginPolicy::PUSH;
+            tstamp = 120;
+            break;
+        case 6:
+            simulation = Scenario::MANUAL_CENTRALITY;
+            centrality = CentralityType::CLOSENESS;
+            origin = OriginPolicy::PULL;
+            tstamp = 120;
+            break;
+        case 7:
+            simulation = Scenario::MANUAL_CENTRALITY;
+            centrality = CentralityType::BETWEENNESS;
+            origin = OriginPolicy::PUSH;
+            tstamp = 120;
+            break;
+        case 8:
+            simulation = Scenario::MANUAL_CENTRALITY;
+            centrality = CentralityType::BETWEENNESS;
+            origin = OriginPolicy::PULL;
+            tstamp = 120;
+            break;
+        case 9:
+            simulation = Scenario::MACHINE_LEARNING;
+            centrality = CentralityType::DEGREE;
+            origin = OriginPolicy::PUSH;
+            tstamp = 180;
+            break;
+        case 10:
+            simulation = Scenario::MACHINE_LEARNING;
+            centrality = CentralityType::DEGREE;
+            origin = OriginPolicy::PULL;
+            tstamp = 180;
+            break;
+        case 11:
+            simulation = Scenario::MANUAL_CENTRALITY;
+            centrality = CentralityType::DEGREE;
+            origin = OriginPolicy::PUSH;
+            tstamp = 180;
+            break;
+        case 12: 
+            simulation = Scenario::MANUAL_CENTRALITY;
+            centrality = CentralityType::DEGREE;
+            origin = OriginPolicy::PULL;
+            tstamp = 180;
+            break;
+        case 13:
+            simulation = Scenario::MANUAL_CENTRALITY;
+            centrality = CentralityType::CLOSENESS;
+            origin = OriginPolicy::PUSH;
+            tstamp = 180;
+            break;
+        case 14:
+            simulation = Scenario::MANUAL_CENTRALITY;
+            centrality = CentralityType::CLOSENESS;
+            origin = OriginPolicy::PULL;
+            tstamp = 180;
+            break;
+        case 15:
+            simulation = Scenario::MANUAL_CENTRALITY;
+            centrality = CentralityType::BETWEENNESS;
+            origin = OriginPolicy::PUSH;
+            tstamp = 180;
+            break;
+        case 16:
+            simulation = Scenario::MANUAL_CENTRALITY;
+            centrality = CentralityType::BETWEENNESS;
+            origin = OriginPolicy::PULL;
+            tstamp = 180;
+            break;        
+        case 17:
+            simulation = Scenario::MACHINE_LEARNING;
+            centrality = CentralityType::DEGREE;
+            origin = OriginPolicy::PUSH;
+            tstamp = 240;
+            break;
+        case 18:
+            simulation = Scenario::MACHINE_LEARNING;
+            centrality = CentralityType::DEGREE;
+            origin = OriginPolicy::PULL;
+            tstamp = 240;
+            break;
+        case 19:
+            simulation = Scenario::MANUAL_CENTRALITY;
+            centrality = CentralityType::DEGREE;
+            origin = OriginPolicy::PUSH;
+            tstamp = 240;
+            break;
+        case 20: 
+            simulation = Scenario::MANUAL_CENTRALITY;
+            centrality = CentralityType::DEGREE;
+            origin = OriginPolicy::PULL;
+            tstamp = 240;
+            break;
+        case 21:
+            simulation = Scenario::MANUAL_CENTRALITY;
+            centrality = CentralityType::CLOSENESS;
+            origin = OriginPolicy::PUSH;
+            tstamp = 240;
+            break;
+        case 22:
+            simulation = Scenario::MANUAL_CENTRALITY;
+            centrality = CentralityType::CLOSENESS;
+            origin = OriginPolicy::PULL;
+            tstamp = 240;
+            break;
+        case 23:
+            simulation = Scenario::MANUAL_CENTRALITY;
+            centrality = CentralityType::BETWEENNESS;
+            origin = OriginPolicy::PUSH;
+            tstamp = 240;
+            break;
+        case 24:
+            simulation = Scenario::MANUAL_CENTRALITY;
+            centrality = CentralityType::BETWEENNESS;
+            origin = OriginPolicy::PULL;
+            tstamp = 240;
+            break;
+    }
+
+    rsuCount = getParentModule()->par("rsuCount");
+    std::cout << "RSU count: " << rsuCount << endl;
 }

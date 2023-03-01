@@ -500,6 +500,7 @@ void Message::copy(const Message& other)
     this->source = other.source;
     this->dest = other.dest;
     this->senderPosition = other.senderPosition;
+    this->initPosition = other.initPosition;
     this->type = other.type;
     this->state = other.state;
     this->centrality = other.centrality;
@@ -509,6 +510,7 @@ void Message::copy(const Message& other)
     this->maxHops = other.maxHops;
     this->msgInfo = other.msgInfo;
     this->ackInfo = other.ackInfo;
+    this->msgTime = other.msgTime;
     this->route = other.route;
     this->previousNodes = other.previousNodes;
     this->contentId = other.contentId;
@@ -527,6 +529,7 @@ void Message::parsimPack(omnetpp::cCommBuffer *b) const
     doParsimPacking(b,this->source);
     doParsimPacking(b,this->dest);
     doParsimPacking(b,this->senderPosition);
+    doParsimPacking(b,this->initPosition);
     doParsimPacking(b,this->type);
     doParsimPacking(b,this->state);
     doParsimPacking(b,this->centrality);
@@ -536,6 +539,7 @@ void Message::parsimPack(omnetpp::cCommBuffer *b) const
     doParsimPacking(b,this->maxHops);
     doParsimPacking(b,this->msgInfo);
     doParsimPacking(b,this->ackInfo);
+    doParsimPacking(b,this->msgTime);
     doParsimPacking(b,this->route);
     doParsimPacking(b,this->previousNodes);
     doParsimPacking(b,this->contentId);
@@ -554,6 +558,7 @@ void Message::parsimUnpack(omnetpp::cCommBuffer *b)
     doParsimUnpacking(b,this->source);
     doParsimUnpacking(b,this->dest);
     doParsimUnpacking(b,this->senderPosition);
+    doParsimUnpacking(b,this->initPosition);
     doParsimUnpacking(b,this->type);
     doParsimUnpacking(b,this->state);
     doParsimUnpacking(b,this->centrality);
@@ -563,6 +568,7 @@ void Message::parsimUnpack(omnetpp::cCommBuffer *b)
     doParsimUnpacking(b,this->maxHops);
     doParsimUnpacking(b,this->msgInfo);
     doParsimUnpacking(b,this->ackInfo);
+    doParsimUnpacking(b,this->msgTime);
     doParsimUnpacking(b,this->route);
     doParsimUnpacking(b,this->previousNodes);
     doParsimUnpacking(b,this->contentId);
@@ -630,6 +636,16 @@ const Coord& Message::getSenderPosition() const
 void Message::setSenderPosition(const Coord& senderPosition)
 {
     this->senderPosition = senderPosition;
+}
+
+const Coord& Message::getInitPosition() const
+{
+    return this->initPosition;
+}
+
+void Message::setInitPosition(const Coord& initPosition)
+{
+    this->initPosition = initPosition;
 }
 
 MessageType Message::getType() const
@@ -722,6 +738,16 @@ void Message::setAckInfo(omnetpp::simtime_t ackInfo)
     this->ackInfo = ackInfo;
 }
 
+omnetpp::simtime_t Message::getMsgTime() const
+{
+    return this->msgTime;
+}
+
+void Message::setMsgTime(omnetpp::simtime_t msgTime)
+{
+    this->msgTime = msgTime;
+}
+
 const Deque& Message::getRoute() const
 {
     return this->route;
@@ -803,6 +829,7 @@ class MessageDescriptor : public omnetpp::cClassDescriptor
         FIELD_source,
         FIELD_dest,
         FIELD_senderPosition,
+        FIELD_initPosition,
         FIELD_type,
         FIELD_state,
         FIELD_centrality,
@@ -812,6 +839,7 @@ class MessageDescriptor : public omnetpp::cClassDescriptor
         FIELD_maxHops,
         FIELD_msgInfo,
         FIELD_ackInfo,
+        FIELD_msgTime,
         FIELD_route,
         FIELD_previousNodes,
         FIELD_contentId,
@@ -881,7 +909,7 @@ const char *MessageDescriptor::getProperty(const char *propertyname) const
 int MessageDescriptor::getFieldCount() const
 {
     omnetpp::cClassDescriptor *basedesc = getBaseClassDescriptor();
-    return basedesc ? 22+basedesc->getFieldCount() : 22;
+    return basedesc ? 24+basedesc->getFieldCount() : 24;
 }
 
 unsigned int MessageDescriptor::getFieldTypeFlags(int field) const
@@ -899,6 +927,7 @@ unsigned int MessageDescriptor::getFieldTypeFlags(int field) const
         0,    // FIELD_source
         0,    // FIELD_dest
         0,    // FIELD_senderPosition
+        0,    // FIELD_initPosition
         FD_ISEDITABLE,    // FIELD_type
         FD_ISEDITABLE,    // FIELD_state
         FD_ISEDITABLE,    // FIELD_centrality
@@ -908,6 +937,7 @@ unsigned int MessageDescriptor::getFieldTypeFlags(int field) const
         FD_ISEDITABLE,    // FIELD_maxHops
         FD_ISEDITABLE,    // FIELD_msgInfo
         0,    // FIELD_ackInfo
+        0,    // FIELD_msgTime
         FD_ISCOMPOUND,    // FIELD_route
         FD_ISCOMPOUND,    // FIELD_previousNodes
         FD_ISEDITABLE,    // FIELD_contentId
@@ -916,7 +946,7 @@ unsigned int MessageDescriptor::getFieldTypeFlags(int field) const
         FD_ISEDITABLE,    // FIELD_segmentNumber
         FD_ISEDITABLE,    // FIELD_multimedia
     };
-    return (field >= 0 && field < 22) ? fieldTypeFlags[field] : 0;
+    return (field >= 0 && field < 24) ? fieldTypeFlags[field] : 0;
 }
 
 const char *MessageDescriptor::getFieldName(int field) const
@@ -934,6 +964,7 @@ const char *MessageDescriptor::getFieldName(int field) const
         "source",
         "dest",
         "senderPosition",
+        "initPosition",
         "type",
         "state",
         "centrality",
@@ -943,6 +974,7 @@ const char *MessageDescriptor::getFieldName(int field) const
         "maxHops",
         "msgInfo",
         "ackInfo",
+        "msgTime",
         "route",
         "previousNodes",
         "contentId",
@@ -951,7 +983,7 @@ const char *MessageDescriptor::getFieldName(int field) const
         "segmentNumber",
         "multimedia",
     };
-    return (field >= 0 && field < 22) ? fieldNames[field] : nullptr;
+    return (field >= 0 && field < 24) ? fieldNames[field] : nullptr;
 }
 
 int MessageDescriptor::findField(const char *fieldName) const
@@ -964,22 +996,24 @@ int MessageDescriptor::findField(const char *fieldName) const
     if (fieldName[0] == 's' && strcmp(fieldName, "source") == 0) return base+3;
     if (fieldName[0] == 'd' && strcmp(fieldName, "dest") == 0) return base+4;
     if (fieldName[0] == 's' && strcmp(fieldName, "senderPosition") == 0) return base+5;
-    if (fieldName[0] == 't' && strcmp(fieldName, "type") == 0) return base+6;
-    if (fieldName[0] == 's' && strcmp(fieldName, "state") == 0) return base+7;
-    if (fieldName[0] == 'c' && strcmp(fieldName, "centrality") == 0) return base+8;
-    if (fieldName[0] == 'o' && strcmp(fieldName, "originMessage") == 0) return base+9;
-    if (fieldName[0] == 'u' && strcmp(fieldName, "updatePaths") == 0) return base+10;
-    if (fieldName[0] == 'h' && strcmp(fieldName, "hops") == 0) return base+11;
-    if (fieldName[0] == 'm' && strcmp(fieldName, "maxHops") == 0) return base+12;
-    if (fieldName[0] == 'm' && strcmp(fieldName, "msgInfo") == 0) return base+13;
-    if (fieldName[0] == 'a' && strcmp(fieldName, "ackInfo") == 0) return base+14;
-    if (fieldName[0] == 'r' && strcmp(fieldName, "route") == 0) return base+15;
-    if (fieldName[0] == 'p' && strcmp(fieldName, "previousNodes") == 0) return base+16;
-    if (fieldName[0] == 'c' && strcmp(fieldName, "contentId") == 0) return base+17;
-    if (fieldName[0] == 'c' && strcmp(fieldName, "content") == 0) return base+18;
-    if (fieldName[0] == 's' && strcmp(fieldName, "segments") == 0) return base+19;
-    if (fieldName[0] == 's' && strcmp(fieldName, "segmentNumber") == 0) return base+20;
-    if (fieldName[0] == 'm' && strcmp(fieldName, "multimedia") == 0) return base+21;
+    if (fieldName[0] == 'i' && strcmp(fieldName, "initPosition") == 0) return base+6;
+    if (fieldName[0] == 't' && strcmp(fieldName, "type") == 0) return base+7;
+    if (fieldName[0] == 's' && strcmp(fieldName, "state") == 0) return base+8;
+    if (fieldName[0] == 'c' && strcmp(fieldName, "centrality") == 0) return base+9;
+    if (fieldName[0] == 'o' && strcmp(fieldName, "originMessage") == 0) return base+10;
+    if (fieldName[0] == 'u' && strcmp(fieldName, "updatePaths") == 0) return base+11;
+    if (fieldName[0] == 'h' && strcmp(fieldName, "hops") == 0) return base+12;
+    if (fieldName[0] == 'm' && strcmp(fieldName, "maxHops") == 0) return base+13;
+    if (fieldName[0] == 'm' && strcmp(fieldName, "msgInfo") == 0) return base+14;
+    if (fieldName[0] == 'a' && strcmp(fieldName, "ackInfo") == 0) return base+15;
+    if (fieldName[0] == 'm' && strcmp(fieldName, "msgTime") == 0) return base+16;
+    if (fieldName[0] == 'r' && strcmp(fieldName, "route") == 0) return base+17;
+    if (fieldName[0] == 'p' && strcmp(fieldName, "previousNodes") == 0) return base+18;
+    if (fieldName[0] == 'c' && strcmp(fieldName, "contentId") == 0) return base+19;
+    if (fieldName[0] == 'c' && strcmp(fieldName, "content") == 0) return base+20;
+    if (fieldName[0] == 's' && strcmp(fieldName, "segments") == 0) return base+21;
+    if (fieldName[0] == 's' && strcmp(fieldName, "segmentNumber") == 0) return base+22;
+    if (fieldName[0] == 'm' && strcmp(fieldName, "multimedia") == 0) return base+23;
     return basedesc ? basedesc->findField(fieldName) : -1;
 }
 
@@ -998,6 +1032,7 @@ const char *MessageDescriptor::getFieldTypeString(int field) const
         "veins::LAddress::L2Type",    // FIELD_source
         "veins::LAddress::L2Type",    // FIELD_dest
         "veins::Coord",    // FIELD_senderPosition
+        "veins::Coord",    // FIELD_initPosition
         "MessageType",    // FIELD_type
         "CurrentState",    // FIELD_state
         "CentralityType",    // FIELD_centrality
@@ -1007,6 +1042,7 @@ const char *MessageDescriptor::getFieldTypeString(int field) const
         "int",    // FIELD_maxHops
         "float",    // FIELD_msgInfo
         "omnetpp::simtime_t",    // FIELD_ackInfo
+        "omnetpp::simtime_t",    // FIELD_msgTime
         "Deque",    // FIELD_route
         "Deque",    // FIELD_previousNodes
         "string",    // FIELD_contentId
@@ -1015,7 +1051,7 @@ const char *MessageDescriptor::getFieldTypeString(int field) const
         "int",    // FIELD_segmentNumber
         "bool",    // FIELD_multimedia
     };
-    return (field >= 0 && field < 22) ? fieldTypeStrings[field] : nullptr;
+    return (field >= 0 && field < 24) ? fieldTypeStrings[field] : nullptr;
 }
 
 const char **MessageDescriptor::getFieldPropertyNames(int field) const
@@ -1109,6 +1145,7 @@ std::string MessageDescriptor::getFieldValueAsString(void *object, int field, in
         case FIELD_source: {std::stringstream out; out << pp->getSource(); return out.str();}
         case FIELD_dest: {std::stringstream out; out << pp->getDest(); return out.str();}
         case FIELD_senderPosition: {std::stringstream out; out << pp->getSenderPosition(); return out.str();}
+        case FIELD_initPosition: {std::stringstream out; out << pp->getInitPosition(); return out.str();}
         case FIELD_type: return enum2string(pp->getType(), "MessageType");
         case FIELD_state: return enum2string(pp->getState(), "CurrentState");
         case FIELD_centrality: return enum2string(pp->getCentrality(), "CentralityType");
@@ -1118,6 +1155,7 @@ std::string MessageDescriptor::getFieldValueAsString(void *object, int field, in
         case FIELD_maxHops: return long2string(pp->getMaxHops());
         case FIELD_msgInfo: return double2string(pp->getMsgInfo());
         case FIELD_ackInfo: return simtime2string(pp->getAckInfo());
+        case FIELD_msgTime: return simtime2string(pp->getMsgTime());
         case FIELD_route: {std::stringstream out; out << pp->getRoute(); return out.str();}
         case FIELD_previousNodes: {std::stringstream out; out << pp->getPreviousNodes(); return out.str();}
         case FIELD_contentId: return oppstring2string(pp->getContentId());
@@ -1187,6 +1225,7 @@ void *MessageDescriptor::getFieldStructValuePointer(void *object, int field, int
         case FIELD_source: return toVoidPtr(&pp->getSource()); break;
         case FIELD_dest: return toVoidPtr(&pp->getDest()); break;
         case FIELD_senderPosition: return toVoidPtr(&pp->getSenderPosition()); break;
+        case FIELD_initPosition: return toVoidPtr(&pp->getInitPosition()); break;
         case FIELD_route: return toVoidPtr(&pp->getRoute()); break;
         case FIELD_previousNodes: return toVoidPtr(&pp->getPreviousNodes()); break;
         default: return nullptr;
