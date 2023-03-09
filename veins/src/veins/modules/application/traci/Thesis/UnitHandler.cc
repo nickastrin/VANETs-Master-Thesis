@@ -885,7 +885,7 @@ bool UnitHandler::contentSearch(Message *wsm, storageDict storage, bool origin)
 
         else
         {
-            time = simTime() + 1 + uniform(0.01, 0.5);
+            time = simTime() + 0.1 + uniform(0.01, 0.5);
             std::cout << "Node " << myId << " sending content with Content Id " << wsm->getContentId() << " to " << wsm->getSource() << " at " << time << endl;
 
             reply->setContent(content.c_str());
@@ -935,7 +935,7 @@ std::string UnitHandler::extractContent(Message *wsm)
             break;
     }
 
-    if (!recFirst && segments > 1 && wsm->getSegmentNumber() == 1 && wsm->getMultimedia())
+    if (!recFirst && segments > 1 && segmentCount == 1 && wsm->getMultimedia())
     {
         recFirst = true;
         recFirstTime = simTime();

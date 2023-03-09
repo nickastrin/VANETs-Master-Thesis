@@ -192,6 +192,7 @@ void OriginHandler::extractingMsg()
         std::string word;
         std::vector<std::string> row;
 
+        std::cout << "CLEARED\n";
         centralVec.clear();
 
         while (getline(file, line))
@@ -223,7 +224,7 @@ void OriginHandler::extractingMsg()
 
             std::cout << address << endl;
 
-            if (!std::binary_search(centralVec.begin(), centralVec.end(), address))
+            if (!(std::find(centralVec.begin(), centralVec.end(), address) != centralVec.end()))
             {
                 std::cout << "Push RSU Id: " << address << endl;
                 centralVec.push_back(address);
@@ -321,8 +322,11 @@ void OriginHandler::onOriginCentralityReply(Message *wsm)
 
         highestCentrality = data;
         //pushRsu = wsm->getSource();
-        std::cout << "Highest centrality: " << data << endl;
-        std::cout << "Push RSU: " << centralVec[0] << endl;
+        for (auto it = centralVec.begin(); it != centralVec.end(); ++it)
+        {
+            std::cout << "Push RSU: " << *it << endl;
+            std::cout << "Highest centrality: " << data << endl;
+        }
     }
 } 
 
@@ -366,7 +370,7 @@ void OriginHandler::onPushContent(Message *wsm)
 
         bool pushContentToRsu = false;
         if (!centralVec.empty())
-            pushContentToRsu = !std::binary_search(centralVec.begin(), centralVec.end(), wsm->getSource());
+            pushContentToRsu = !(std::find(centralVec.begin(), centralVec.end(), wsm->getSource()) != centralVec.end());
 
 
         if (!content.empty() && origin == OriginPolicy::PUSH && pushContentToRsu)
@@ -374,9 +378,9 @@ void OriginHandler::onPushContent(Message *wsm)
             simtime_t time;
             float sequenceDelay = 0.0;
 
-            for (auto i = centralVec.begin(); i != centralVec.end(); i++)
+            for (auto j = centralVec.begin(); j != centralVec.end(); j++)
             {
-                auto it = rsuRouting.find(*i);
+                auto it = rsuRouting.find(*j);
                 pathDeque route = it->second;
 
                 // Create push message
@@ -384,7 +388,7 @@ void OriginHandler::onPushContent(Message *wsm)
                 populateWSM(push);
                 // Define message identifiers
                 push->setSource(myId);
-                push->setDest(pushRsu);
+                push->setDest(*j);
                 push->setSenderAddress(myId);
                 push->setSenderPosition(curPosition);
                 push->setRecipient(route.front());
@@ -414,7 +418,7 @@ void OriginHandler::onPushContent(Message *wsm)
                     for (int i = 1; i <= segments; i++)
                     {
                         time = simTime() + i * delay + sequenceDelay +  uniform(0.01, 0.5);
-                        std::cout << "Origin " << myId << " sending segmented content to " << pushRsu << " with Content ID " << wsm->getContentId();
+                        std::cout << "Origin " << myId << " sending segmented content to " << *j << " with Content ID " << wsm->getContentId();
                         std::cout << " and segment number " << i << " at " << time << endl;
 
                         // Break into smaller strings
@@ -434,8 +438,8 @@ void OriginHandler::onPushContent(Message *wsm)
 
                 else
                 {   
-                    time = simTime() + 1 + sequenceDelay + uniform(0.01, 0.5);
-                    std::cout << "Origin " << myId << " sending content with Content Id " << wsm->getContentId() << " to " << pushRsu << " at " << time << endl;
+                    time = simTime() + 0.1 + sequenceDelay + uniform(0.01, 0.5);
+                    std::cout << "Origin " << myId << " sending content with Content Id " << wsm->getContentId() << " to " << *j << " at " << time << endl;
 
                     push->setContent(content.c_str());
                     scheduleAt(time, push->dup());

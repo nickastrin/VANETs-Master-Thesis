@@ -390,7 +390,7 @@ void RsuHandler::onPullReply(Message *wsm)
                     // Else, just send content
                     else
                     {
-                        time = simTime() + 1 + uniform(0.01, 0.5);
+                        time = simTime() + 0.1 + uniform(0.01, 0.5);
                         std::cout << "RSU " << myId << " sending content with Content Id " << wsm->getContentId() << " to " << i->source << " at " << time << endl;
                         reply->setContent(content.c_str());
                         scheduleAt(time, reply->dup());
@@ -413,10 +413,10 @@ void RsuHandler::onPushML(Message *wsm)
     //pushRsu = wsm->getDest();
 
     long address = wsm->getDest();
-    if (lastUpdateRsu - simTime() > 75)
+    if (simTime() - lastUpdateRsu > 75)
         centralVec.clear();
 
-    if (!std::binary_search(centralVec.begin(), centralVec.end(), address))
+    if (!(std::find(centralVec.begin(), centralVec.end(), address) != centralVec.end()))
     {
         centralVec.push_back(address);
         lastUpdateRsu = simTime();
@@ -434,10 +434,10 @@ void RsuHandler::onPushCentrality(Message *wsm)
     // Extract info
     //pushRsu = wsm->getDest();
     long address = wsm->getDest();
-    if (lastUpdateRsu - simTime() > 75)
+    if (simTime() - lastUpdateRsu > 75)
         centralVec.clear();
 
-    if (!std::binary_search(centralVec.begin(), centralVec.end(), address))
+    if (!(std::find(centralVec.begin(), centralVec.end(), address) != centralVec.end()))
     {
         centralVec.push_back(address);
         lastUpdateRsu = simTime();
@@ -568,13 +568,16 @@ void RsuHandler::onRequest(Message *wsm)
             dest = pushRsu;
             */
 
-        if (centralVec.empty() || std::binary_search(centralVec.begin(), centralVec.end(), myId))
+        bool myself = std::find(centralVec.begin(), centralVec.end(), myId) != centralVec.end();
+        if (centralVec.empty() || myself)
             dest = originIp;
         else
         {
             int maxHops = 9999;
+            std::cout << "Size: " << centralVec.size() << endl;
             for (auto it = centralVec.begin(); it != centralVec.end(); it++)
             {
+                std::cout << "Central RSU: " << *it << endl;
                 auto it2 = rsuRouting.find(*it);
                 pathDeque route = it2->second;
 

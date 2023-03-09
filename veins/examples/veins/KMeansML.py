@@ -1,13 +1,9 @@
 import sched, time, os
 import pandas as pd
-import time
 from pathlib import Path
 from sklearn.cluster import KMeans
-from sklearn.cluster import SpectralClustering
 
 def export_data(scheduler): 
-    start = time.time()
-
     absolute_path = os.path.dirname(__file__)
     relative_path = "vehicles.csv"
     full_path = os.path.join(absolute_path, relative_path)
@@ -28,9 +24,6 @@ def export_data(scheduler):
         os.remove(file)
     else:
         print("File does not exist")
-    
-    end = time.time()
-    print("Time elapsed: ", end - start)
     # do your stuff
 
 myScheduler = sched.scheduler(time.time, time.sleep)

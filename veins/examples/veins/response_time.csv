@@ -1,0 +1,7 @@
+RSU Count, ScenarioId, ContentId, Timestamp, Completion, REQ/REP, SimType, Centrality, OriginPolicy
+15,18,5,290.062680,-,REQ,ML,Degree,Pull
+15,18,5,294.956704,295.490818,REP,ML,Degree,Pull
+15,18,5,290.062680,-,REQ,ML,Degree,Pull
+15,18,5,294.956704,295.490818,REP,ML,Degree,Pull
+5,14,4,215.171433,-,REQ,Manual,Closeness,Pull
+5,14,4,218.644162,218.644162,REP,Manual,Closeness,Pull
