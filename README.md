@@ -6,8 +6,6 @@ This project was created as the implementation of my Master's Thesis @ NTUA ECE 
 "Simulation of Content Distribution Policies in Vehicular Ad-Hoc Networks (VANETs) with the use of Machine Learning Algorithms".
 The code is written in C++ and Python and is built using OMNET++, Veins and SUMO.
 
----
-
 ## Installation
 
 The prerequisites for running this code are:
