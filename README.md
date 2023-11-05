@@ -1,4 +1,4 @@
-![image](https://github.com/nickastrin/VANETs-Master-Thesis/assets/65467988/5b491929-986f-48dc-aca7-0a629010d942)# VANETs-Master Thesis
+# VANETs-Master Thesis
 
 ## Description 
 
