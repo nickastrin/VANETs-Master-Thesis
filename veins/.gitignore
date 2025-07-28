@@ -71,3 +71,5 @@ subprojects/veins_testsims/sim/**/.qtenvrc
 subprojects/veins_testsims/sim/**/.cmdenv-log
 subprojects/veins_testsims/sim/**/valgrind.out
 subprojects/veins_testsims/opp_tests/**/work
+
+.tmp*
