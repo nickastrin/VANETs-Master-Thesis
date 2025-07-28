@@ -2,7 +2,11 @@ subprojects/** linguist-vendored
 bin/** linguist-vendored
 doc/** linguist-vendored
 images/** linguist-vendored
-src/** linguist-vendored
+src/scripts** linguist-vendored
+src/veins/base** linguist-vendored
+src/veins/nodes** linguist-vendored
+src/veins/visualizer** linguist-vendored
+src/veins/modules** linguist-vendored
 
-src/veins/modules/application/traci/* linguist-detectable
-src/veins/modules/application/traci/** linguist-detectable
+src/veins/modules/application/traci/Thesis/* linguist-detectable
+src/veins/modules/application/traci/Thesis/** linguist-detectable
