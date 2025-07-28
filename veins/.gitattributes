@@ -1,19 +1,52 @@
+subprojects/* linguist-vendored
 subprojects/** linguist-vendored
+
+bin/* linguist-vendored
 bin/** linguist-vendored
+
+doc/* linguist-vendored
 doc/** linguist-vendored
+
+images/* linguist-vendored
 images/** linguist-vendored
+
+src/scripts/* linguist-vendored
 src/scripts/** linguist-vendored
+
+src/veins/base/* linguist-vendored
 src/veins/base/** linguist-vendored
+
+src/veins/nodes/* linguist-vendored
 src/veins/nodes/** linguist-vendored
+
+src/veins/visualizer/* linguist-vendored
 src/veins/visualizer/** linguist-vendored
+
+src/veins/modules/analogueModel/* linguist-vendored
 src/veins/modules/analogueModel/** linguist-vendored
+
+src/veins/modules/mac/* linguist-vendored
 src/veins/modules/mac/** linguist-vendored
+
+src/veins/modules/messages/* linguist-vendored
 src/veins/modules/messages/** linguist-vendored
+
+src/veins/modules/mobility/* linguist-vendored
 src/veins/modules/mobility/** linguist-vendored
+
+src/veins/modules/nic/* linguist-vendored
 src/veins/modules/nic/** linguist-vendored
+
+src/veins/modules/obstacle/* linguist-vendored
 src/veins/modules/obstacle/** linguist-vendored
+
+src/veins/modules/phy/* linguist-vendored
 src/veins/modules/phy/** linguist-vendored
+
+src/veins/modules/utility/* linguist-vendored
 src/veins/modules/utility/** linguist-vendored
+
+src/veins/modules/world/* linguist-vendored
 src/veins/modules/world/** linguist-vendored
 
 
